@@ -1,0 +1,261 @@
+{
+  "database": "classroom_clash",
+  "description": "Sistema de gestión de participación estudiantil",
+  "tables": {
+    "users": {
+      "columns": {
+        "id": {
+          "type": "bigint(20) UNSIGNED",
+          "autoIncrement": true,
+          "primaryKey": true
+        },
+        "name": {
+          "type": "varchar(255)",
+          "nullable": false
+        },
+        "email": {
+          "type": "varchar(255)",
+          "nullable": false,
+          "unique": true
+        },
+        "password": {
+          "type": "varchar(255)",
+          "nullable": false
+        },
+        "role": {
+          "type": "enum",
+          "values": ["docente", "estudiante"],
+          "nullable": false
+        },
+        "remember_token": {
+          "type": "varchar(100)",
+          "nullable": true
+        },
+        "created_at": {
+          "type": "timestamp",
+          "nullable": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "nullable": true
+        }
+      },
+      "indexes": [
+        {
+          "name": "users_email_unique",
+          "type": "unique",
+          "columns": ["email"]
+        },
+        {
+          "name": "users_role_index",
+          "type": "index",
+          "columns": ["role"]
+        }
+      ],
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    "challenges": {
+      "columns": {
+        "id": {
+          "type": "bigint(20) UNSIGNED",
+          "autoIncrement": true,
+          "primaryKey": true
+        },
+        "name": {
+          "type": "varchar(255)",
+          "nullable": false
+        },
+        "teacher_id": {
+          "type": "bigint(20) UNSIGNED",
+          "nullable": false
+        },
+        "is_active": {
+          "type": "tinyint(1)",
+          "nullable": false,
+          "default": 1
+        },
+        "join_code": {
+          "type": "varchar(6)",
+          "nullable": false,
+          "unique": true
+        },
+        "created_at": {
+          "type": "timestamp",
+          "nullable": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "nullable": true
+        }
+      },
+      "indexes": [
+        {
+          "name": "challenges_join_code_unique",
+          "type": "unique",
+          "columns": ["join_code"]
+        },
+        {
+          "name": "challenges_teacher_id_foreign",
+          "type": "index",
+          "columns": ["teacher_id"]
+        },
+        {
+          "name": "challenges_is_active_index",
+          "type": "index",
+          "columns": ["is_active"]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "challenges_teacher_id_foreign",
+          "column": "teacher_id",
+          "references": {
+            "table": "users",
+            "column": "id"
+          },
+          "onDelete": "CASCADE"
+        }
+      ],
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    "participants": {
+      "columns": {
+        "id": {
+          "type": "bigint(20) UNSIGNED",
+          "autoIncrement": true,
+          "primaryKey": true
+        },
+        "user_id": {
+          "type": "bigint(20) UNSIGNED",
+          "nullable": false
+        },
+        "challenge_id": {
+          "type": "bigint(20) UNSIGNED",
+          "nullable": false
+        },
+        "points": {
+          "type": "int(11)",
+          "nullable": false,
+          "default": 0
+        },
+        "created_at": {
+          "type": "timestamp",
+          "nullable": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "nullable": true
+        }
+      },
+      "indexes": [
+        {
+          "name": "participants_user_id_challenge_id_unique",
+          "type": "unique",
+          "columns": ["user_id", "challenge_id"]
+        },
+        {
+          "name": "participants_challenge_id_foreign",
+          "type": "index",
+          "columns": ["challenge_id"]
+        },
+        {
+          "name": "participants_points_index",
+          "type": "index",
+          "columns": ["points"]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "participants_user_id_foreign",
+          "column": "user_id",
+          "references": {
+            "table": "users",
+            "column": "id"
+          },
+          "onDelete": "CASCADE"
+        },
+        {
+          "name": "participants_challenge_id_foreign",
+          "column": "challenge_id",
+          "references": {
+            "table": "challenges",
+            "column": "id"
+          },
+          "onDelete": "CASCADE"
+        }
+      ],
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci"
+    }
+  },
+  "sampleData": {
+    "users": [
+      {
+        "id": 1,
+        "name": "Profesor Demo",
+        "email": "profesor@demo.com",
+        "password": "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+        "role": "docente",
+        "note": "Password: password123"
+      },
+      {
+        "id": 2,
+        "name": "Juan Pérez",
+        "email": "juan@demo.com",
+        "password": "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+        "role": "estudiante",
+        "note": "Password: password123"
+      },
+      {
+        "id": 3,
+        "name": "María García",
+        "email": "maria@demo.com",
+        "password": "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+        "role": "estudiante",
+        "note": "Password: password123"
+      },
+      {
+        "id": 4,
+        "name": "Carlos López",
+        "email": "carlos@demo.com",
+        "password": "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+        "role": "estudiante",
+        "note": "Password: password123"
+      }
+    ],
+    "challenges": [
+      {
+        "id": 1,
+        "name": "Clase de Matemáticas",
+        "teacher_id": 1,
+        "is_active": 1,
+        "join_code": "ABC123"
+      }
+    ],
+    "participants": [
+      {
+        "id": 1,
+        "user_id": 2,
+        "challenge_id": 1,
+        "points": 5
+      },
+      {
+        "id": 2,
+        "user_id": 3,
+        "challenge_id": 1,
+        "points": 8
+      },
+      {
+        "id": 3,
+        "user_id": 4,
+        "challenge_id": 1,
+        "points": 3
+      }
+    ]
+  }
+}
