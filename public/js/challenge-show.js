@@ -155,10 +155,32 @@ if (modalInput) {
 }
 const modalForm = document.getElementById('scoreForm');
 
-function openScoreModal(participantId, name, points) {
-    modalName.textContent = 'Ajustar: ' + name;
+function openScoreModal(participantId, name, points, durationSeconds, hasFinished) {
+    modalName.textContent = '⚙️ Ajustar: ' + name;
     modalInput.value = points;
     modalForm.action = `/challenge/${challengeId}/participant/${participantId}/score`;
+
+    const deleteForm = document.getElementById('deleteParticipantForm');
+    if (deleteForm) {
+        deleteForm.action = `/challenge/${challengeId}/participant/${participantId}/delete`;
+    }
+
+    // Show/hide time adjustment section
+    const timeSection = document.getElementById('timeAdjustSection');
+    const modalMinutes = document.getElementById('modalMinutes');
+    const modalSeconds = document.getElementById('modalSeconds');
+
+    if (hasFinished && durationSeconds !== undefined) {
+        timeSection.style.display = 'block';
+        const mins = Math.floor(durationSeconds / 60);
+        const secs = durationSeconds % 60;
+        modalMinutes.value = mins;
+        modalSeconds.value = secs;
+    } else {
+        timeSection.style.display = 'none';
+        modalMinutes.value = '';
+        modalSeconds.value = '';
+    }
 
     // Find participant position
     const participantCards = document.querySelectorAll('.participant-card:not(.placeholder)');
@@ -166,7 +188,7 @@ function openScoreModal(participantId, name, points) {
 
     participantCards.forEach((card, index) => {
         if (card.id === `participant-card-${participantId}`) {
-            currentParticipantPosition = index + 1; // 1-based position
+            currentParticipantPosition = index + 1;
         }
     });
 
@@ -196,15 +218,60 @@ function applySuggestedPoints() {
     modalInput.value = suggestedPoints;
 }
 
+// Add penalty to modal time inputs
+function addModalPenalty(seconds) {
+    const modalMinutes = document.getElementById('modalMinutes');
+    const modalSeconds = document.getElementById('modalSeconds');
+
+    let mins = parseInt(modalMinutes.value) || 0;
+    let secs = parseInt(modalSeconds.value) || 0;
+
+    let totalSeconds = (mins * 60) + secs + seconds;
+
+    modalMinutes.value = Math.floor(totalSeconds / 60);
+    modalSeconds.value = totalSeconds % 60;
+}
+
+// Handle score form submission to include time
+if (modalForm) {
+    modalForm.addEventListener('submit', function (e) {
+        const modalDurationInput = document.getElementById('modalDurationInput');
+        const modalMinutes = document.getElementById('modalMinutes');
+        const modalSeconds = document.getElementById('modalSeconds');
+
+        if (modalMinutes && modalSeconds && modalMinutes.value !== '' && modalSeconds.value !== '') {
+            const mins = parseInt(modalMinutes.value) || 0;
+            const secs = parseInt(modalSeconds.value) || 0;
+            modalDurationInput.value = (mins * 60) + secs;
+        }
+    });
+}
+
 const validateModal = document.getElementById('validateModal');
 const validateModalName = document.getElementById('validateModalStudentName');
 const validateForm = document.getElementById('validateForm');
-const penaltyInput = document.getElementById('penaltySeconds');
+const validateAction = document.getElementById('validateAction');
+const btnValidateSubmit = document.getElementById('btnValidateSubmit');
+const btnInvalidate = document.getElementById('btnInvalidate');
+const validateMessage = document.getElementById('validateMessage');
 
-function openValidateModal(participantId, name) {
-    validateModalName.textContent = 'Validar: ' + name;
-    penaltyInput.value = 0;
+function openValidateModal(participantId, name, isValidated) {
+    validateModalName.textContent = isValidated ? `Cambiar Estado: ${name}` : `Marcar Entrega: ${name}`;
     validateForm.action = `/challenge/${challengeId}/participant/${participantId}/validate`;
+
+    // Set message and buttons based on validation status
+    if (isValidated) {
+        validateMessage.innerHTML = '✅ Este estudiante está marcado como <strong>Entregado</strong>.<br>¿Deseas cambiarlo a <strong>Activo</strong>?';
+        btnValidateSubmit.style.display = 'none';
+        btnInvalidate.style.display = 'inline-block';
+        validateAction.value = 'invalidate';
+    } else {
+        validateMessage.innerHTML = '⏱️ ¿Deseas marcar a este estudiante como <strong>Entregado</strong>?<br>Esto detendrá su tiempo de trabajo.';
+        btnValidateSubmit.style.display = 'inline-block';
+        btnInvalidate.style.display = 'none';
+        validateAction.value = 'validate';
+    }
+
     validateModal.style.display = 'flex';
 }
 
@@ -212,8 +279,9 @@ function closeValidateModal() {
     if (validateModal) validateModal.style.display = 'none';
 }
 
-function setPenalty(seconds) {
-    penaltyInput.value = seconds;
+function submitInvalidate() {
+    validateAction.value = 'invalidate';
+    validateForm.submit();
 }
 
 

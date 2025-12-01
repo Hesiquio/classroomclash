@@ -15,7 +15,7 @@
     @auth
         <nav class="navbar">
             <div class="container">
-                <a href="{{ route('dashboard') }}" class="navbar-brand">Classroom Clash</a>
+                <a href="{{ route('dashboard') }}" class="navbar-brand">Dashboard</a>
                 <div class="navbar-menu">
                     <span class="navbar-user">{{ Auth::user()->name }} ({{ ucfirst(Auth::user()->role) }})</span>
                     <form action="{{ route('logout') }}" method="POST" style="display: inline;">

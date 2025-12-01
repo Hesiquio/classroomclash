@@ -22,6 +22,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/archived', [DashboardController::class, 'archived'])->name('dashboard.archived');
     Route::post('/dashboard/challenge/create', [DashboardController::class, 'createChallenge'])->name('challenge.create');
     Route::post('/dashboard/challenge/join', [DashboardController::class, 'joinChallenge'])->name('challenge.join');
 
@@ -36,6 +37,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/challenge/{challenge}/participant/{participant}/validate', [ChallengeController::class, 'validateSubmission'])->name('challenge.validate');
     
     Route::put('/challenge/{challenge}/update', [ChallengeController::class, 'update'])->name('challenge.update');
+    Route::delete('/challenge/{challenge}', [ChallengeController::class, 'destroy'])->name('challenge.destroy');
     Route::post('/challenge/{challenge}/roulette', [ChallengeController::class, 'roulette'])->name('challenge.roulette');
     
     // Team routes
@@ -45,7 +47,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/challenge/{challenge}/duplicate', [ChallengeController::class, 'duplicate'])->name('challenge.duplicate');
     
     Route::post('/challenge/{challenge}/add-student', [ChallengeController::class, 'addStudent'])->name('challenge.addStudent');
+    Route::delete('/challenge/{challenge}/participant/{participant}/delete', [ChallengeController::class, 'removeParticipant'])->name('challenge.participant.delete');
     Route::post('/challenge/{challenge}/finalize', [ChallengeController::class, 'finalize'])->name('challenge.finalize');
     
     Route::post('/challenge/{challenge}/resume', [ChallengeController::class, 'resume'])->name('challenge.resume');
+    Route::post('/challenge/{challenge}/archive', [ChallengeController::class, 'archive'])->name('challenge.archive');
 });

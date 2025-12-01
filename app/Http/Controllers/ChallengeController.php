@@ -150,18 +150,26 @@ class ChallengeController extends Controller
 
         $validated = $request->validate([
             'points' => 'required|integer|min:0',
+            'duration_seconds' => 'nullable|integer|min:1',
         ]);
 
-        $participant->update([
+        $updateData = [
             'points' => $validated['points'],
             'participated' => true,
-        ]);
+        ];
 
-        if ($request->ajax() || $request->wantsJson()) {
-            return response()->json(['success' => true]);
+        // Update duration if provided
+        if (isset($validated['duration_seconds']) && $validated['duration_seconds'] > 0) {
+            $updateData['duration_seconds'] = $validated['duration_seconds'];
         }
 
-        return back()->with('success', 'Puntaje actualizado.');
+        $participant->update($updateData);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Estudiante actualizado correctamente.']);
+        }
+
+        return back()->with('success', 'Estudiante actualizado correctamente.');
     }
 
     public function validateSubmission(Challenge $challenge, Participant $participant, Request $request)
@@ -169,21 +177,22 @@ class ChallengeController extends Controller
         $this->authorizeTeacher($challenge);
 
         $validated = $request->validate([
-            'penalty_seconds' => 'required|integer|min:0',
+            'action' => 'required|in:validate,invalidate',
         ]);
 
-        $penalty = $validated['penalty_seconds'];
-
-        // Add penalty to duration
-        $participant->update([
-            'duration_seconds' => $participant->duration_seconds + $penalty,
-        ]);
-
-        if ($request->ajax() || $request->wantsJson()) {
-            return response()->json(['success' => true]);
+        if ($validated['action'] === 'invalidate') {
+            $participant->update(['validated_at' => null]);
+            $message = 'Estudiante marcado como activo.';
+        } else {
+            $participant->update(['validated_at' => now()]);
+            $message = 'Estudiante marcado como entregado.';
         }
 
-        return redirect()->route('challenge.show', $challenge)->with('success', 'Validación aplicada.');
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $message]);
+        }
+
+        return back()->with('success', $message);
     }
 
     public function addPoint(Challenge $challenge, $participantId)
@@ -220,6 +229,15 @@ class ChallengeController extends Controller
         $challenge->update(['is_active' => false]);
 
         return back()->with('success', 'Desafío finalizado correctamente.');
+    }
+
+    public function resume(Challenge $challenge)
+    {
+        $this->authorizeTeacher($challenge);
+
+        $challenge->update(['is_active' => true]);
+
+        return back()->with('success', 'Desafío reactivado correctamente.');
     }
 
     public function update(Request $request, Challenge $challenge)
@@ -367,6 +385,38 @@ class ChallengeController extends Controller
         return back()->with('success', 'Desafío duplicado correctamente.');
     }
 
+    public function archive(Challenge $challenge)
+    {
+        $this->authorizeTeacher($challenge);
+
+        $challenge->update(['is_active' => false]);
+
+        return back()->with('success', 'Desafío archivado correctamente.');
+    }
+
+    public function removeParticipant(Challenge $challenge, Participant $participant)
+    {
+        $this->authorizeTeacher($challenge);
+
+        // Ensure participant belongs to challenge
+        if ($participant->challenge_id !== $challenge->id) {
+            abort(404);
+        }
+
+        $participant->delete();
+
+        return back()->with('success', 'Estudiante eliminado del desafío.');
+    }
+
+    public function destroy(Challenge $challenge)
+    {
+        $this->authorizeTeacher($challenge);
+
+        $challenge->delete();
+
+        return back()->with('success', 'Desafío eliminado correctamente.');
+    }
+
     private function authorizeTeacher(Challenge $challenge)
     {
         $user = Auth::user();
@@ -374,5 +424,4 @@ class ChallengeController extends Controller
             abort(403, 'No tienes permiso para realizar esta acción.');
         }
     }
-
 }

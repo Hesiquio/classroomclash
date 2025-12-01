@@ -158,7 +158,6 @@
     padding: 0 0.5rem;
 }
 
-
 .participant-card {
     background: white;
     padding: 0.4rem;
@@ -242,66 +241,6 @@
     color: #6b7280;
 }
 
-.submission-time {
-    font-size: 0.7rem;
-    color: #6b7280;
-    margin-top: 0.1rem;
-}
-
-/* Current User Highlight */
-.participant-card.current-user {
-    border: 2px solid #3b82f6 !important;
-    background: linear-gradient(135deg, #dbeafe 0%, #ffffff 100%) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-}
-
-.participant-card.current-user .student-name {
-    color: #1e40af;
-    font-weight: 700;
-}
-
-.participant-card.current-user .position-badge {
-    color: #1e40af;
-}
-
-
-.card-actions {
-    display: flex;
-    justify-content: center;
-    gap: 0.2rem;
-    margin-top: 0.2rem;
-}
-
-.btn-icon {
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.1s;
-    padding: 0;
-}
-
-.btn-icon:hover {
-    background: #e5e7eb;
-    transform: translateY(-1px);
-}
-
-.btn-icon.validate {
-    background: #ecfdf5;
-    border-color: #d1fae5;
-}
-
-.btn-icon.validate:hover {
-    background: #d1fae5;
-}
-
-/* Modal Compact */
 .score-controls {
     display: flex;
     align-items: center;
@@ -380,6 +319,28 @@
 
 .btn-penalty:hover {
     background-color: #fecaca;
+}
+
+/* Validated Badge */
+.validated-badge {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 600;
+    text-align: center;
+    margin-top: 0.25rem;
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.2);
+}
+
+.btn-icon.validate.validated {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.btn-icon.validate.validated:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
 }
 
 /* Roulette Styles */
@@ -603,7 +564,6 @@
     display: inline-block;
 }
 
-
 /* Icon Action Buttons with Tooltips */
 .btn-icon-action {
     position: relative;
@@ -715,7 +675,6 @@
     background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
 }
 
-
 /* Team Cards */
 .participant-card.team-card {
     min-height: 140px;
@@ -744,7 +703,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.1rem 0.3rem;
-    background: rgba(0,0,0,0.03);
+    background: rgba(0, 0, 0, 0.03);
     border-radius: 4px;
 }
 
@@ -752,4 +711,31 @@
     color: #10b981;
     font-weight: bold;
     font-size: 0.7rem;
+}
+
+/* Tooltip positioning for timer actions - show below buttons */
+.timer-actions .btn {
+    position: relative;
+}
+
+.timer-actions .btn::after {
+    content: attr(title);
+    position: absolute;
+    bottom: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 1000;
+}
+
+.timer-actions .btn:hover::after {
+    opacity: 1;
 }

@@ -13,11 +13,23 @@ class DashboardController extends Controller
         $user = Auth::user();
 
         if ($user->isDocente()) {
-            $challenges = $user->challenges()->latest()->get();
+            $challenges = $user->challenges()->where('is_active', true)->latest()->get();
             return view('dashboard.docente', compact('challenges'));
         }
 
         return view('dashboard.estudiante');
+    }
+
+    public function archived()
+    {
+        $user = Auth::user();
+
+        if (!$user->isDocente()) {
+            return redirect()->route('dashboard');
+        }
+
+        $challenges = $user->challenges()->where('is_active', false)->latest()->get();
+        return view('dashboard.archived', compact('challenges'));
     }
 
     public function createChallenge(Request $request)

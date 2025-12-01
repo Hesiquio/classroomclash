@@ -1,6 +1,6 @@
 
 
-<?php $__env->startSection('title', $challenge->name . ' - Classroom Clash'); ?>
+<?php $__env->startSection('title', $challenge->name . ' - Dashboard'); ?>
 
 <?php $__env->startSection('content'); ?>
 <div class="challenge-show-header">
@@ -41,14 +41,14 @@
                     <?php if(!$challenge->started_at || $challenge->paused_at): ?>
                         <form action="<?php echo e(route('challenge.start', $challenge)); ?>" method="POST" style="display:inline;">
                             <?php echo csrf_field(); ?>
-                            <button type="submit" class="btn-icon-action btn-icon-success" data-tooltip="<?php echo e($challenge->started_at ? 'Reanudar' : 'Iniciar'); ?>">
+                            <button type="submit" class="btn btn-sm btn-success" title="<?php echo e($challenge->started_at ? 'Reanudar' : 'Iniciar'); ?>">
                                 ▶️
                             </button>
                         </form>
                     <?php else: ?>
                         <form action="<?php echo e(route('challenge.pause', $challenge)); ?>" method="POST" style="display:inline;">
                             <?php echo csrf_field(); ?>
-                            <button type="submit" class="btn-icon-action btn-icon-warning" data-tooltip="Pausar">
+                            <button type="submit" class="btn btn-sm btn-warning" title="Pausar">
                                 ⏸️
                             </button>
                         </form>
@@ -56,21 +56,21 @@
 
                     <form action="<?php echo e(route('challenge.finalize', $challenge)); ?>" method="POST" onsubmit="return confirm('¿Estás seguro de finalizar este desafío?')" style="display:inline;">
                         <?php echo csrf_field(); ?>
-                        <button type="submit" class="btn-icon-action btn-icon-danger" data-tooltip="Finalizar">
+                        <button type="submit" class="btn btn-sm btn-danger" title="Finalizar">
                             ⏹️
                         </button>
                     </form>
                 <?php else: ?>
                     <form action="<?php echo e(route('challenge.resume', $challenge)); ?>" method="POST" style="display:inline;">
                         <?php echo csrf_field(); ?>
-                        <button type="submit" class="btn-icon-action btn-icon-primary" data-tooltip="Reactivar">
+                        <button type="submit" class="btn btn-sm btn-primary" title="Reactivar">
                             🔄
                         </button>
                     </form>
                 <?php endif; ?>
                 
                 <?php if(Auth::user()->isDocente()): ?>
-                    <button type="button" class="btn-icon-action btn-icon-primary" onclick="openAddStudentModal()" data-tooltip="Añadir Estudiante">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openAddStudentModal()" title="Añadir Estudiante">
                         ➕
                     </button>
                 <?php endif; ?>
@@ -79,17 +79,17 @@
                     <form action="<?php echo e(route('challenge.teams.delete', $challenge)); ?>" method="POST" style="display:inline;" onsubmit="return confirm('¿Deshacer los equipos y volver al modo individual?')">
                         <?php echo csrf_field(); ?>
                         <?php echo method_field('DELETE'); ?>
-                        <button type="submit" class="btn-icon-action btn-icon-danger" data-tooltip="Deshacer Equipos">
+                        <button type="submit" class="btn btn-sm btn-danger" title="Deshacer Equipos">
                             👥🚫
                         </button>
                     </form>
                 <?php else: ?>
-                    <button type="button" class="btn-icon-action btn-icon-info" onclick="openTeamsModal()" data-tooltip="Formar Equipos">
+                    <button type="button" class="btn btn-sm btn-info" onclick="openTeamsModal()" title="Formar Equipos">
                         👥
                     </button>
                 <?php endif; ?>
                 
-                <button type="button" class="btn-icon-action btn-icon-info" onclick="openRouletteModal()" data-tooltip="Ruleta">
+                <button type="button" class="btn btn-sm btn-info" onclick="openRouletteModal()" title="Ruleta">
                     🎰
                 </button>
             </div>
@@ -167,6 +167,9 @@
                     <?php if($participant->finished_at): ?>
                         <div class="submission-time">⏱ <?php echo e(gmdate("H:i:s", $participant->duration_seconds)); ?></div>
                     <?php endif; ?>
+                    <?php if($participant->validated_at): ?>
+                        <div class="validated-badge">🏅 Validado</div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="points-display">
@@ -176,12 +179,13 @@
 
                 <?php if(Auth::user()->isDocente() && $challenge->is_active): ?>
                     <div class="card-actions">
-                        <button type="button" class="btn-icon settings" onclick="openScoreModal(<?php echo e($participant->id); ?>, '<?php echo e($participant->user->name); ?>', <?php echo e($participant->points); ?>)" title="Ajustar Puntos">
+                        <button type="button" class="btn-icon settings" onclick="openScoreModal(<?php echo e($participant->id); ?>, '<?php echo e($participant->user->name); ?>', <?php echo e($participant->points); ?>, <?php echo e($participant->duration_seconds ?? 0); ?>, <?php echo e($participant->finished_at ? 'true' : 'false'); ?>)" title="Ajustar Estudiante">
                             ⚙️
                         </button>
                         <?php if($participant->finished_at): ?>
-                            <button type="button" class="btn-icon validate" onclick="openValidateModal(<?php echo e($participant->id); ?>, '<?php echo e($participant->user->name); ?>')" title="Validar Desafío">
-                                ✅
+                            <button type="button" class="btn-icon validate <?php echo e($participant->validated_at ? 'validated' : ''); ?>" onclick="openValidateModal(<?php echo e($participant->id); ?>, '<?php echo e($participant->user->name); ?>', <?php echo e($participant->validated_at ? 'true' : 'false'); ?>)" title="<?php echo e($participant->validated_at ? 'Entregado' : 'Marcar Entrega'); ?>">
+                                <?php echo e($participant->validated_at ? '🏅' : '✅'); ?>
+
                             </button>
                         <?php endif; ?>
                     </div>
@@ -208,34 +212,66 @@
 <div id="scoreModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 id="modalStudentName" class="modal-title">Ajustar Puntos</h2>
+            <h2 id="modalStudentName" class="modal-title">⚙️ Ajustar Estudiante</h2>
             <span class="close" onclick="closeScoreModal()">&times;</span>
         </div>
         <div class="modal-body">
-            <div id="suggestedPointsInfo" class="alert-compact-info" style="display:none; margin-bottom: 0.5rem;">
-                💡 Sugerencia: <strong id="suggestedPointsValue"></strong> puntos
-            </div>
-            <div class="text-center mb-2 small text-muted">
-                Rango permitido: <?php echo e($challenge->min_points ?? 0); ?> - <?php echo e($challenge->max_points); ?> pts
-            </div>
             <form id="scoreForm" method="POST" class="score-form-modal">
                 <?php echo csrf_field(); ?>
-                <div class="score-controls">
-                    <button type="button" class="btn-adjust minus" onclick="adjustModalScore(-1)">-1</button>
-                    <button type="button" class="btn-adjust minus" onclick="adjustModalScore(-5)">-5</button>
-                    
-                    <input type="number" id="modalPointsInput" name="points" class="form-control text-center" min="0" max="<?php echo e($challenge->max_points); ?>" required>
-                    
-                    <button type="button" class="btn-adjust plus" onclick="adjustModalScore(1)">+1</button>
-                    <button type="button" class="btn-adjust plus" onclick="adjustModalScore(5)">+5</button>
+                
+                <!-- Sección de Puntos -->
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+                    <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: #6b7280; text-align: center;">📊 Puntos</h3>
+                    <div id="suggestedPointsInfo" class="alert-compact-info" style="display:none; margin-bottom: 0.5rem;">
+                        💡 Sugerencia: <strong id="suggestedPointsValue"></strong> puntos
+                    </div>
+                    <div class="text-center mb-2 small text-muted">
+                        Rango: <?php echo e($challenge->min_points ?? 0); ?> - <?php echo e($challenge->max_points); ?> pts
+                    </div>
+                    <div class="score-controls">
+                        <button type="button" class="btn-adjust minus" onclick="adjustModalScore(-1)">-1</button>
+                        <button type="button" class="btn-adjust minus" onclick="adjustModalScore(-5)">-5</button>
+                        
+                        <input type="number" id="modalPointsInput" name="points" class="form-control text-center" min="0" max="<?php echo e($challenge->max_points); ?>" required>
+                        
+                        <button type="button" class="btn-adjust plus" onclick="adjustModalScore(1)">+1</button>
+                        <button type="button" class="btn-adjust plus" onclick="adjustModalScore(5)">+5</button>
+                    </div>
+                    <div style="text-align: center; margin-top: 0.5rem;">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="applySuggestedPoints()">Usar Sugerencia</button>
+                    </div>
                 </div>
-                <div style="text-align: center; margin-top: 0.5rem;">
-                    <button type="button" class="btn btn-sm btn-outline" onclick="applySuggestedPoints()">Usar Sugerencia</button>
+
+                <!-- Sección de Tiempo -->
+                <div id="timeAdjustSection" style="display:none; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+                    <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: #6b7280; text-align: center;">⏱️ Tiempo Final</h3>
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                        <input type="number" id="modalMinutes" class="form-control text-center" style="width: 70px; font-size: 1.2rem;" min="0" placeholder="00">
+                        <span style="font-weight: bold; font-size: 1.2rem;">:</span>
+                        <input type="number" id="modalSeconds" class="form-control text-center" style="width: 70px; font-size: 1.2rem;" min="0" max="59" placeholder="00">
+                    </div>
+                    
+                    <p class="small mb-2" style="text-align: center;">Añadir Penalización:</p>
+                    <div class="penalty-controls" style="display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1rem;">
+                        <button type="button" class="btn-penalty" onclick="addModalPenalty(10)">+10s</button>
+                        <button type="button" class="btn-penalty" onclick="addModalPenalty(30)">+30s</button>
+                        <button type="button" class="btn-penalty" onclick="addModalPenalty(60)">+60s</button>
+                    </div>
+                    <input type="hidden" name="duration_seconds" id="modalDurationInput">
                 </div>
+
                 <div class="modal-footer-custom">
                     <button type="button" class="btn btn-sm btn-secondary" onclick="closeScoreModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+                    <button type="submit" class="btn btn-sm btn-primary">Guardar Cambios</button>
                 </div>
+            </form>
+            
+            <form id="deleteParticipantForm" method="POST" onsubmit="return confirm('¿Estás seguro de eliminar a este estudiante del desafío? Esta acción no se puede deshacer.')" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem; text-align: center;">
+                <?php echo csrf_field(); ?>
+                <?php echo method_field('DELETE'); ?>
+                <button type="submit" class="btn btn-sm btn-danger">
+                    🗑️ Eliminar Estudiante
+                </button>
             </form>
         </div>
     </div>
@@ -245,25 +281,28 @@
 <div id="validateModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 id="validateModalStudentName" class="modal-title">Validar</h2>
+            <h2 id="validateModalStudentName" class="modal-title">Marcar Entrega</h2>
             <span class="close" onclick="closeValidateModal()">&times;</span>
         </div>
         <div class="modal-body">
-            <p class="small mb-2">Penalización por errores:</p>
             <form id="validateForm" method="POST" class="score-form-modal">
                 <?php echo csrf_field(); ?>
-                <div class="form-group">
-                    <div class="penalty-controls">
-                        <button type="button" class="btn-penalty" onclick="setPenalty(0)">0s</button>
-                        <button type="button" class="btn-penalty" onclick="setPenalty(10)">10s</button>
-                        <button type="button" class="btn-penalty" onclick="setPenalty(30)">30s</button>
-                        <button type="button" class="btn-penalty" onclick="setPenalty(60)">60s</button>
+                <input type="hidden" name="action" id="validateAction" value="validate">
+                
+                <div class="text-center" style="padding: 1.5rem 0;">
+                    <div id="validateMessage" style="font-size: 1.1rem; margin-bottom: 1.5rem; color: #6b7280;">
+                        <!-- Mensaje dinámico -->
                     </div>
-                    <input type="number" id="penaltySeconds" name="penalty_seconds" class="form-control form-control-sm mt-1" value="0" min="0" placeholder="Segundos extra">
+                    <p class="small text-muted">
+                        Este botón solo marca el estado de entrega del estudiante.<br>
+                        Para ajustar tiempo o puntos, usa el botón ⚙️ Ajustar.
+                    </p>
                 </div>
+
                 <div class="modal-footer-custom">
                     <button type="button" class="btn btn-sm btn-secondary" onclick="closeValidateModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-sm btn-success">Aplicar</button>
+                    <button type="submit" class="btn btn-sm btn-success" id="btnValidateSubmit">Marcar como Entregado</button>
+                    <button type="button" class="btn btn-sm btn-warning" id="btnInvalidate" onclick="submitInvalidate()" style="display:none;">Marcar como Activo</button>
                 </div>
             </form>
         </div>
@@ -281,13 +320,15 @@
             <form action="<?php echo e(route('challenge.addStudent', $challenge)); ?>" method="POST" class="score-form-modal">
                 <?php echo csrf_field(); ?>
                 <div class="form-group">
-                    <label for="studentSelect" class="form-label">Seleccionar Estudiante:</label>
-                    <select name="student_id" id="studentSelect" class="form-control" required style="width: 100%; padding: 0.5rem;">
-                        <option value="">-- Buscar estudiante --</option>
+                    <label for="studentSearchInput" class="form-label">Buscar Estudiante:</label>
+                    <input type="text" id="studentSearchInput" class="form-control" placeholder="Escribe para buscar..." autocomplete="off">
+                    
+                    <select name="student_id" id="studentSelect" class="form-control" required size="5">
                         <?php $__currentLoopData = $availableStudents; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $student): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                             <option value="<?php echo e($student->id); ?>"><?php echo e($student->name); ?> (<?php echo e($student->email); ?>)</option>
                         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </select>
+                    <div id="noStudentsFound" style="display:none; color: #6b7280; font-size: 0.9rem; margin-top: 0.5rem;">No se encontraron estudiantes</div>
                 </div>
                 <div class="modal-footer-custom">
                     <button type="button" class="btn btn-sm btn-secondary" onclick="closeAddStudentModal()">Cancelar</button>

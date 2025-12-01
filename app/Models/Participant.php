@@ -16,12 +16,14 @@ class Participant extends Model
         'finished_at',
         'duration_seconds',
         'participated',
+        'validated_at',
     ];
 
     protected $casts = [
         'points' => 'integer',
         'finished_at' => 'datetime',
         'participated' => 'boolean',
+        'validated_at' => 'datetime',
     ];
 
     public function user()

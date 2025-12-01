@@ -15,7 +15,7 @@
     <?php if(auth()->guard()->check()): ?>
         <nav class="navbar">
             <div class="container">
-                <a href="<?php echo e(route('dashboard')); ?>" class="navbar-brand">Classroom Clash</a>
+                <a href="<?php echo e(route('dashboard')); ?>" class="navbar-brand">Dashboard</a>
                 <div class="navbar-menu">
                     <span class="navbar-user"><?php echo e(Auth::user()->name); ?> (<?php echo e(ucfirst(Auth::user()->role)); ?>)</span>
                     <form action="<?php echo e(route('logout')); ?>" method="POST" style="display: inline;">

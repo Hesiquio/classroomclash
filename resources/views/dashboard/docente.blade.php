@@ -1,13 +1,18 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard Docente - Classroom Clash')
+@section('title', 'Dashboard Docente - Dashboard')
 
 @section('content')
 <div class="dashboard-header">
     <h1>Mis Desafíos</h1>
-    <button type="button" class="btn btn-primary" onclick="toggleModal('createChallengeModal')">
-        Crear Nuevo Desafío
-    </button>
+    <div class="header-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+        <a href="{{ route('dashboard.archived') }}" class="btn btn-secondary" style="line-height: 1.5;">
+            📂 Archivados
+        </a>
+        <button type="button" class="btn btn-primary" style="line-height: 1.5;" onclick="toggleModal('createChallengeModal')">
+            Crear Nuevo Desafío
+        </button>
+    </div>
 </div>
 
 @if($challenges->isEmpty())
@@ -33,14 +38,29 @@
                     <p><strong>Creado:</strong> {{ $challenge->created_at->format('d/m/Y H:i') }}</p>
                 </div>
                 <div class="challenge-footer">
-                    <a href="{{ route('challenge.show', $challenge) }}" class="btn btn-sm btn-primary">Ver Pizarra</a>
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="openEditModal({{ $challenge->id }}, '{{ $challenge->name }}', {{ $challenge->min_points ?? 0 }}, {{ $challenge->max_points ?? 100 }})">
-                        Editar
+                    <a href="{{ route('challenge.show', $challenge) }}" class="btn btn-sm btn-primary" title="Ver Pizarra">
+                        📊
+                    </a>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="openEditModal({{ $challenge->id }}, '{{ $challenge->name }}', {{ $challenge->min_points ?? 0 }}, {{ $challenge->max_points ?? 100 }})" title="Editar">
+                        ✏️
                     </button>
                     <form action="{{ route('challenge.duplicate', $challenge) }}" method="POST" style="display:inline; margin-left:4px;" onsubmit="return confirm('¿Crear una copia de este desafío?')">
                         @csrf
                         <button type="submit" class="btn btn-sm btn-outline-primary" title="Duplicar">
-                            Copia
+                            📋
+                        </button>
+                    </form>
+                    <form action="{{ route('challenge.archive', $challenge) }}" method="POST" style="display:inline; margin-left:4px;" onsubmit="return confirm('¿Archivar este desafío? Podrás reactivarlo desde la sección de Archivados.')">
+                        @csrf
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Archivar">
+                            📦
+                        </button>
+                    </form>
+                    <form action="{{ route('challenge.destroy', $challenge) }}" method="POST" style="display:inline; margin-left:4px;" onsubmit="return confirm('¿Estás seguro de eliminar este desafío? Esta acción no se puede deshacer.')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                            🗑️
                         </button>
                     </form>
                 </div>
@@ -118,6 +138,40 @@
         </form>
     </div>
 </div>
+
+@push('styles')
+<style>
+    /* Tooltip positioning - show below buttons */
+    .challenge-footer .btn,
+    .challenge-footer a.btn {
+        position: relative;
+    }
+    
+    .challenge-footer .btn::after,
+    .challenge-footer a.btn::after {
+        content: attr(title);
+        position: absolute;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        z-index: 1000;
+    }
+    
+    .challenge-footer .btn:hover::after,
+    .challenge-footer a.btn:hover::after {
+        opacity: 1;
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>
