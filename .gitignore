@@ -1,0 +1,61 @@
+###############################################
+# LARAVEL - .gitignore
+###############################################
+
+# ── CRÍTICO: Variables de entorno ──────────────
+.env
+.env.*
+!.env.example
+
+# ── Dependencias (se instalan con composer) ────
+/vendor/
+
+# ── Archivos de build de Node ──────────────────
+/node_modules/
+/public/hot
+/public/storage
+/public/build
+
+# ── Storage (logs, caché, sesiones, uploads) ───
+/storage/*.key
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/testing/
+storage/framework/views/
+storage/logs/
+
+# ── Bootstrap cache ────────────────────────────
+/bootstrap/cache/*.php
+
+# ── Archivos generados por el sistema ──────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDEs y editores ────────────────────────────
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.sublime-project
+*.sublime-workspace
+
+# ── Archivos temporales y de prueba ────────────
+*.log
+*.cache
+
+# ── Archivos específicos de ESTE proyecto ──────
+# (encontrados en la raíz — no deben ir al repo)
+classroomclash.zip
+composer-setup.php
+composer.phar
+database.json
+database.sql
+
+# ── Tests y cobertura ─────────────────────────
+.phpunit.cache
+.phpunit.result.cache
+coverage/

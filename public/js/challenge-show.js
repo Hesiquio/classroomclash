@@ -10,27 +10,21 @@ let totalParticipants = 0;
 let suggestedPoints = 0;
 
 // WhatsApp Share functionality
-// WhatsApp Share functionality
 function shareOnWhatsApp() {
-
     const codeElement = document.getElementById('challengeCode');
     if (!codeElement) {
-
         alert('Error: No se encontró el código del desafío.');
         return;
     }
 
     const codeText = codeElement.textContent.trim();
     if (!codeText) {
-
         alert('Error: El código está vacío.');
         return;
     }
 
     const message = `¡Únete a mi desafío en Classroom Clash! 🚀\n\nCódigo de acceso: *${codeText}*\n\nIngresa aquí: ${window.location.origin}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-
 
     // Try opening in new tab
     const newWindow = window.open(whatsappUrl, '_blank');
@@ -57,12 +51,58 @@ function calculateSuggestedPoints(position, total) {
     return Math.round(minPoints + (pointsRange * positionFactor));
 }
 
+let wasRunning = window.ChallengeConfig.isRunning;
+
 setInterval(() => {
     if (isRunning) {
         seconds++;
         if (timerElement) timerElement.textContent = formatTime(seconds);
     }
+
+    // Detectar cuando el desafío se acaba de finalizar
+    if (wasRunning && !isRunning) {
+        handleChallengeFinalized();
+    }
+    wasRunning = isRunning;
 }, 1000);
+
+/**
+ * Se llama UNA vez cuando isRunning pasa de true → false (desafío finalizado).
+ * Inyecta el tiempo global actual en las tarjetas que aún no muestran tiempo.
+ */
+function handleChallengeFinalized() {
+    // Mostrar banner de finalización si aún no existe
+    if (!document.getElementById('finalizedBanner')) {
+        const banner = document.createElement('div');
+        banner.id = 'finalizedBanner';
+        banner.style.cssText = [
+            'position:fixed', 'top:1rem', 'left:50%',
+            'transform:translateX(-50%)', 'z-index:9999',
+            'background:linear-gradient(135deg,#1e293b,#334155)',
+            'color:white', 'padding:0.75rem 1.5rem',
+            'border-radius:10px', 'font-weight:700',
+            'box-shadow:0 4px 20px rgba(0,0,0,0.3)',
+            'font-size:1rem', 'letter-spacing:0.02em',
+            'animation:fadeIn 0.4s ease'
+        ].join(';');
+        banner.textContent = '⏹️ Desafío finalizado — ' + formatTime(seconds);
+        document.body.appendChild(banner);
+        setTimeout(() => banner.remove(), 5000);
+    }
+
+    // Inyectar tiempo estimado en tarjetas sin tiempo registrado
+    document.querySelectorAll('.participant-card:not(.placeholder)').forEach(card => {
+        const infoDiv = card.querySelector('.student-info');
+        if (!infoDiv) return;
+        if (!infoDiv.querySelector('.submission-time')) {
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'submission-time submission-time-estimated';
+            timeDiv.title = 'Tiempo estimado al finalizar el desafío';
+            timeDiv.textContent = `⏱ ~${formatTime(seconds)}`;
+            infoDiv.appendChild(timeDiv);
+        }
+    });
+}
 
 function fetchData() {
     fetch(`/challenge/${challengeId}/data`)
@@ -78,10 +118,10 @@ function fetchData() {
 
 function updateParticipantsGrid(participants) {
     const scoreModal = document.getElementById('scoreModal');
-    const validateModal = document.getElementById('validateModal');
+    const deliveryModal = document.getElementById('deliveryModal');
 
     if (scoreModal && scoreModal.style.display === 'flex') return;
-    if (validateModal && validateModal.style.display === 'flex') return;
+    if (deliveryModal && deliveryModal.style.display === 'flex') return;
 
     participants.forEach((p, index) => {
         let card = document.getElementById(`participant-card-${p.id}`);
@@ -110,20 +150,30 @@ function updateParticipantsGrid(participants) {
             if (isDocente) {
                 const settingsBtn = card.querySelector('.btn-icon.settings');
                 if (settingsBtn) {
-                    settingsBtn.setAttribute('onclick', `openScoreModal(${p.id}, '${p.name}', ${p.points})`);
+                    settingsBtn.setAttribute('onclick', `openScoreModal(${p.id}, '${p.name}', ${p.points}, ${p.duration_seconds || 0}, ${p.finished_at ? 'true' : 'false'})`);
                 }
 
                 const actionsDiv = card.querySelector('.card-actions');
-                let validateBtn = card.querySelector('.btn-icon.validate');
+                let deliveryBtn = card.querySelector('.btn-icon.validate'); // We kept the class 'validate' for styling
 
-                if (p.finished_at && !validateBtn) {
-                    validateBtn = document.createElement('button');
-                    validateBtn.type = 'button';
-                    validateBtn.className = 'btn-icon validate';
-                    validateBtn.innerHTML = '✅';
-                    validateBtn.title = 'Validar Desafío';
-                    validateBtn.setAttribute('onclick', `openValidateModal(${p.id}, '${p.name}')`);
-                    actionsDiv.appendChild(validateBtn);
+                if (!deliveryBtn) {
+                    deliveryBtn = document.createElement('button');
+                    deliveryBtn.type = 'button';
+                    deliveryBtn.className = 'btn-icon validate';
+                    actionsDiv.appendChild(deliveryBtn);
+                }
+
+                // Update button state
+                if (p.finished_at) {
+                    deliveryBtn.innerHTML = '🔄';
+                    deliveryBtn.title = 'Devolver Trabajo';
+                    deliveryBtn.classList.add('validated');
+                    deliveryBtn.setAttribute('onclick', `openDeliveryModal(${p.id}, '${p.name}', true)`);
+                } else {
+                    deliveryBtn.innerHTML = '⏰';
+                    deliveryBtn.title = 'Entregar Trabajo';
+                    deliveryBtn.classList.remove('validated');
+                    deliveryBtn.setAttribute('onclick', `openDeliveryModal(${p.id}, '${p.name}', false)`);
                 }
             }
 
@@ -165,21 +215,28 @@ function openScoreModal(participantId, name, points, durationSeconds, hasFinishe
         deleteForm.action = `/challenge/${challengeId}/participant/${participantId}/delete`;
     }
 
-    // Show/hide time adjustment section
+    // Siempre mostrar la sección de tiempo
     const timeSection = document.getElementById('timeAdjustSection');
+    const timeSectionTitle = document.getElementById('timeSectionTitle');
     const modalMinutes = document.getElementById('modalMinutes');
     const modalSeconds = document.getElementById('modalSeconds');
 
-    if (hasFinished && durationSeconds !== undefined) {
-        timeSection.style.display = 'block';
+    timeSection.style.display = 'block';
+
+    if (hasFinished && durationSeconds !== undefined && durationSeconds > 0) {
+        // Estudiante ya entregó: usar su tiempo registrado
         const mins = Math.floor(durationSeconds / 60);
         const secs = durationSeconds % 60;
         modalMinutes.value = mins;
         modalSeconds.value = secs;
+        if (timeSectionTitle) timeSectionTitle.textContent = '⏱️ Tiempo Final';
     } else {
-        timeSection.style.display = 'none';
-        modalMinutes.value = '';
-        modalSeconds.value = '';
+        // Estudiante aún no entregó: pre-cargar con el tiempo actual del cronómetro
+        const currentMins = Math.floor(seconds / 60);
+        const currentSecs = seconds % 60;
+        modalMinutes.value = currentMins;
+        modalSeconds.value = currentSecs;
+        if (timeSectionTitle) timeSectionTitle.textContent = '⏱️ Tiempo de Actividad';
     }
 
     // Find participant position
@@ -218,18 +275,29 @@ function applySuggestedPoints() {
     modalInput.value = suggestedPoints;
 }
 
-// Add penalty to modal time inputs
-function addModalPenalty(seconds) {
+// Ajustar tiempo del modal (penalización positiva o reducción negativa)
+function setPenalty(penaltySecs) {
     const modalMinutes = document.getElementById('modalMinutes');
     const modalSeconds = document.getElementById('modalSeconds');
 
     let mins = parseInt(modalMinutes.value) || 0;
     let secs = parseInt(modalSeconds.value) || 0;
 
-    let totalSeconds = (mins * 60) + secs + seconds;
+    let totalSecs = (mins * 60) + secs + penaltySecs;
+    if (totalSecs < 0) totalSecs = 0; // No permitir tiempo negativo
 
-    modalMinutes.value = Math.floor(totalSeconds / 60);
-    modalSeconds.value = totalSeconds % 60;
+    modalMinutes.value = Math.floor(totalSecs / 60);
+    modalSeconds.value = totalSecs % 60;
+}
+
+// Alias para compatibilidad con botones del HTML que llaman addModalPenalty
+function addModalPenalty(penaltySecs) {
+    setPenalty(penaltySecs);
+}
+
+// Ajustar tiempo: restar segundos (para reducir el tiempo)
+function subtractModalTime(penaltySecs) {
+    setPenalty(-penaltySecs);
 }
 
 // Handle score form submission to include time
@@ -247,44 +315,42 @@ if (modalForm) {
     });
 }
 
-const validateModal = document.getElementById('validateModal');
-const validateModalName = document.getElementById('validateModalStudentName');
-const validateForm = document.getElementById('validateForm');
-const validateAction = document.getElementById('validateAction');
-const btnValidateSubmit = document.getElementById('btnValidateSubmit');
-const btnInvalidate = document.getElementById('btnInvalidate');
-const validateMessage = document.getElementById('validateMessage');
+const deliveryModal = document.getElementById('deliveryModal');
+const deliveryModalName = document.getElementById('deliveryModalStudentName');
+const deliveryForm = document.getElementById('deliveryForm');
+const deliveryAction = document.getElementById('deliveryAction');
+const btnSubmitWork = document.getElementById('btnSubmitWork');
+const btnReturnWork = document.getElementById('btnReturnWork');
+const deliveryMessage = document.getElementById('deliveryMessage');
 
-function openValidateModal(participantId, name, isValidated) {
-    validateModalName.textContent = isValidated ? `Cambiar Estado: ${name}` : `Marcar Entrega: ${name}`;
-    validateForm.action = `/challenge/${challengeId}/participant/${participantId}/validate`;
+function openDeliveryModal(participantId, name, hasFinished) {
+    deliveryModalName.textContent = hasFinished ? `Devolver Trabajo: ${name}` : `Entregar Trabajo: ${name}`;
+    deliveryForm.action = `/challenge/${challengeId}/participant/${participantId}/validate`;
 
-    // Set message and buttons based on validation status
-    if (isValidated) {
-        validateMessage.innerHTML = '✅ Este estudiante está marcado como <strong>Entregado</strong>.<br>¿Deseas cambiarlo a <strong>Activo</strong>?';
-        btnValidateSubmit.style.display = 'none';
-        btnInvalidate.style.display = 'inline-block';
-        validateAction.value = 'invalidate';
+    // Set message and buttons based on delivery status
+    if (hasFinished) {
+        deliveryMessage.innerHTML = '🔄 Este estudiante ya <strong>entregó su trabajo</strong>.<br>¿Deseas <strong>devolverlo</strong> para que continúe trabajando?';
+        btnSubmitWork.style.display = 'none';
+        btnReturnWork.style.display = 'inline-block';
+        deliveryAction.value = 'return';
     } else {
-        validateMessage.innerHTML = '⏱️ ¿Deseas marcar a este estudiante como <strong>Entregado</strong>?<br>Esto detendrá su tiempo de trabajo.';
-        btnValidateSubmit.style.display = 'inline-block';
-        btnInvalidate.style.display = 'none';
-        validateAction.value = 'validate';
+        deliveryMessage.innerHTML = '⏰ ¿Deseas marcar el trabajo de este estudiante como <strong>entregado</strong>?<br>Esto detendrá su cronómetro y guardará el tiempo actual.';
+        btnSubmitWork.style.display = 'inline-block';
+        btnReturnWork.style.display = 'none';
+        deliveryAction.value = 'submit';
     }
 
-    validateModal.style.display = 'flex';
+    deliveryModal.style.display = 'flex';
 }
 
-function closeValidateModal() {
-    if (validateModal) validateModal.style.display = 'none';
+function closeDeliveryModal() {
+    if (deliveryModal) deliveryModal.style.display = 'none';
 }
 
-function submitInvalidate() {
-    validateAction.value = 'invalidate';
-    validateForm.submit();
+function submitReturn() {
+    deliveryAction.value = 'return';
+    deliveryForm.submit();
 }
-
-
 
 function handleAjaxForm(form, callback) {
     if (!form) return;
@@ -312,35 +378,25 @@ function handleAjaxForm(form, callback) {
                     callback();
                     fetchData(); // Refresh grid immediately
                 } else {
-
                     alert('Hubo un error al guardar. Por favor intenta de nuevo.');
                 }
             })
             .catch(error => {
-
                 alert('Hubo un error al guardar. Por favor intenta de nuevo.');
             });
     });
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-
-
     const modalForm = document.getElementById('scoreForm');
-    const validateForm = document.getElementById('validateForm');
+    const deliveryForm = document.getElementById('deliveryForm');
 
     if (modalForm) {
-
         handleAjaxForm(modalForm, closeScoreModal);
-    } else {
-
     }
 
-    if (validateForm) {
-
-        handleAjaxForm(validateForm, closeValidateModal);
-    } else {
-
+    if (deliveryForm) {
+        handleAjaxForm(deliveryForm, closeDeliveryModal);
     }
 });
 
@@ -504,7 +560,6 @@ function sendRoulettePoints(participantId, points) {
             }
         })
         .catch(error => {
-
             alert('Hubo un error al asignar puntos');
         });
 }
@@ -527,9 +582,11 @@ window.openScoreModal = openScoreModal;
 window.closeScoreModal = closeScoreModal;
 window.adjustModalScore = adjustModalScore;
 window.applySuggestedPoints = applySuggestedPoints;
-window.openValidateModal = openValidateModal;
-window.closeValidateModal = closeValidateModal;
+window.openDeliveryModal = openDeliveryModal;
+window.closeDeliveryModal = closeDeliveryModal;
 window.setPenalty = setPenalty;
+window.addModalPenalty = addModalPenalty;
+window.subtractModalTime = subtractModalTime;
 window.openRouletteModal = openRouletteModal;
 window.closeRouletteModal = closeRouletteModal;
 window.selectAllParticipants = selectAllParticipants;
@@ -538,7 +595,6 @@ window.spinRoulette = spinRoulette;
 window.assignRoulettePoints = assignRoulettePoints;
 window.assignCustomRoulettePoints = assignCustomRoulettePoints;
 window.resetRoulette = resetRoulette;
-
 
 /* Teams Modal Functions */
 
@@ -577,13 +633,13 @@ window.closeAddStudentModal = closeAddStudentModal;
 // Consolidated window.onclick handler for all modals
 window.onclick = function (event) {
     const scoreModal = document.getElementById('scoreModal');
-    const validateModal = document.getElementById('validateModal');
+    const deliveryModal = document.getElementById('deliveryModal');
     const rouletteModal = document.getElementById('rouletteModal');
     const teamsModal = document.getElementById('teamsModal');
     const addStudentModal = document.getElementById('addStudentModal');
 
     if (event.target == scoreModal) closeScoreModal();
-    if (event.target == validateModal) closeValidateModal();
+    if (event.target == deliveryModal) closeDeliveryModal();
     if (event.target == rouletteModal) closeRouletteModal();
     if (event.target == teamsModal) closeTeamsModal();
     if (event.target == addStudentModal) closeAddStudentModal();

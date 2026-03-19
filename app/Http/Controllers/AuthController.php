@@ -10,11 +10,6 @@ use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
-    public function showRegister()
-    {
-        return redirect('/')->with('info', 'Por favor regístrate usando el formulario.');
-    }
-
     public function register(Request $request)
     {
         $validated = $request->validate([
@@ -34,11 +29,6 @@ class AuthController extends Controller
         Auth::login($user);
 
         return redirect()->route('dashboard')->with('success', '¡Registro exitoso! Bienvenido a Classroom Clash.');
-    }
-
-    public function showLogin()
-    {
-        return redirect('/')->with('info', 'Por favor inicia sesión usando el formulario.');
     }
 
     public function login(Request $request)

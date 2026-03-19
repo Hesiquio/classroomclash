@@ -177,19 +177,41 @@ class ChallengeController extends Controller
         $this->authorizeTeacher($challenge);
 
         $validated = $request->validate([
-            'action' => 'required|in:validate,invalidate',
+            'action' => 'required|in:submit,return',
         ]);
 
-        if ($validated['action'] === 'invalidate') {
-            $participant->update(['validated_at' => null]);
-            $message = 'Estudiante marcado como activo.';
+        if ($validated['action'] === 'return') {
+            // Return work - clear finished_at so student can continue working
+            $participant->update([
+                'finished_at' => null,
+                'duration_seconds' => null,
+            ]);
+            $message = 'Trabajo devuelto. El estudiante puede continuar trabajando.';
         } else {
-            $participant->update(['validated_at' => now()]);
-            $message = 'Estudiante marcado como entregado.';
+            // Submit work - mark as finished and save current time
+            $duration = 0;
+            if ($challenge->started_at) {
+                if ($challenge->paused_at) {
+                    $duration = $challenge->accumulated_time;
+                } else {
+                    $duration = $challenge->accumulated_time + $challenge->started_at->diffInSeconds(now());
+                }
+            }
+
+            $participant->update([
+                'finished_at' => now(),
+                'duration_seconds' => $duration,
+            ]);
+            $message = 'Trabajo entregado. Cronómetro detenido.';
         }
 
         if ($request->ajax() || $request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => $message]);
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'finished_at' => $participant->finished_at,
+                'duration_seconds' => $participant->duration_seconds,
+            ]);
         }
 
         return back()->with('success', $message);

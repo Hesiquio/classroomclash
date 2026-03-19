@@ -167,9 +167,6 @@
                     <?php if($participant->finished_at): ?>
                         <div class="submission-time">⏱ <?php echo e(gmdate("H:i:s", $participant->duration_seconds)); ?></div>
                     <?php endif; ?>
-                    <?php if($participant->validated_at): ?>
-                        <div class="validated-badge">🏅 Validado</div>
-                    <?php endif; ?>
                 </div>
 
                 <div class="points-display">
@@ -182,12 +179,10 @@
                         <button type="button" class="btn-icon settings" onclick="openScoreModal(<?php echo e($participant->id); ?>, '<?php echo e($participant->user->name); ?>', <?php echo e($participant->points); ?>, <?php echo e($participant->duration_seconds ?? 0); ?>, <?php echo e($participant->finished_at ? 'true' : 'false'); ?>)" title="Ajustar Estudiante">
                             ⚙️
                         </button>
-                        <?php if($participant->finished_at): ?>
-                            <button type="button" class="btn-icon validate <?php echo e($participant->validated_at ? 'validated' : ''); ?>" onclick="openValidateModal(<?php echo e($participant->id); ?>, '<?php echo e($participant->user->name); ?>', <?php echo e($participant->validated_at ? 'true' : 'false'); ?>)" title="<?php echo e($participant->validated_at ? 'Entregado' : 'Marcar Entrega'); ?>">
-                                <?php echo e($participant->validated_at ? '🏅' : '✅'); ?>
+                        <button type="button" class="btn-icon validate <?php echo e($participant->finished_at ? 'validated' : ''); ?>" onclick="openDeliveryModal(<?php echo e($participant->id); ?>, '<?php echo e($participant->user->name); ?>', <?php echo e($participant->finished_at ? 'true' : 'false'); ?>)" title="<?php echo e($participant->finished_at ? 'Devolver Trabajo' : 'Entregar Trabajo'); ?>">
+                            <?php echo e($participant->finished_at ? '🔄' : '⏰'); ?>
 
-                            </button>
-                        <?php endif; ?>
+                        </button>
                     </div>
                 <?php endif; ?>
             </div>
@@ -244,18 +239,22 @@
 
                 <!-- Sección de Tiempo -->
                 <div id="timeAdjustSection" style="display:none; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;">
-                    <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: #6b7280; text-align: center;">⏱️ Tiempo Final</h3>
+                    <h3 id="timeSectionTitle" style="font-size: 1rem; margin-bottom: 0.75rem; color: #6b7280; text-align: center;">⏱️ Tiempo de Actividad</h3>
                     <div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
                         <input type="number" id="modalMinutes" class="form-control text-center" style="width: 70px; font-size: 1.2rem;" min="0" placeholder="00">
                         <span style="font-weight: bold; font-size: 1.2rem;">:</span>
                         <input type="number" id="modalSeconds" class="form-control text-center" style="width: 70px; font-size: 1.2rem;" min="0" max="59" placeholder="00">
                     </div>
                     
-                    <p class="small mb-2" style="text-align: center;">Añadir Penalización:</p>
-                    <div class="penalty-controls" style="display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1rem;">
-                        <button type="button" class="btn-penalty" onclick="addModalPenalty(10)">+10s</button>
-                        <button type="button" class="btn-penalty" onclick="addModalPenalty(30)">+30s</button>
-                        <button type="button" class="btn-penalty" onclick="addModalPenalty(60)">+60s</button>
+                    <p class="small mb-2" style="text-align: center; color: #6b7280;">Ajustar Tiempo:</p>
+                    <div class="penalty-controls" style="display: flex; justify-content: center; gap: 0.4rem; margin-bottom: 0.5rem;">
+                        <button type="button" class="btn-penalty btn-penalty-minus" onclick="subtractModalTime(60)" title="Restar 60 segundos">-60s</button>
+                        <button type="button" class="btn-penalty btn-penalty-minus" onclick="subtractModalTime(30)" title="Restar 30 segundos">-30s</button>
+                        <button type="button" class="btn-penalty btn-penalty-minus" onclick="subtractModalTime(10)" title="Restar 10 segundos">-10s</button>
+                        <span style="width:1px; background:#e5e7eb; margin: 0 0.2rem;"></span>
+                        <button type="button" class="btn-penalty" onclick="addModalPenalty(10)" title="Sumar 10 segundos">+10s</button>
+                        <button type="button" class="btn-penalty" onclick="addModalPenalty(30)" title="Sumar 30 segundos">+30s</button>
+                        <button type="button" class="btn-penalty" onclick="addModalPenalty(60)" title="Sumar 60 segundos">+60s</button>
                     </div>
                     <input type="hidden" name="duration_seconds" id="modalDurationInput">
                 </div>
@@ -277,32 +276,32 @@
     </div>
 </div>
 
-<!-- Validation Modal -->
-<div id="validateModal" class="modal">
+<!-- Delivery Modal -->
+<div id="deliveryModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 id="validateModalStudentName" class="modal-title">Marcar Entrega</h2>
-            <span class="close" onclick="closeValidateModal()">&times;</span>
+            <h2 id="deliveryModalStudentName" class="modal-title">Gestionar Entrega</h2>
+            <span class="close" onclick="closeDeliveryModal()">&times;</span>
         </div>
         <div class="modal-body">
-            <form id="validateForm" method="POST" class="score-form-modal">
+            <form id="deliveryForm" method="POST" class="score-form-modal">
                 <?php echo csrf_field(); ?>
-                <input type="hidden" name="action" id="validateAction" value="validate">
+                <input type="hidden" name="action" id="deliveryAction" value="submit">
                 
                 <div class="text-center" style="padding: 1.5rem 0;">
-                    <div id="validateMessage" style="font-size: 1.1rem; margin-bottom: 1.5rem; color: #6b7280;">
+                    <div id="deliveryMessage" style="font-size: 1.1rem; margin-bottom: 1.5rem; color: #6b7280;">
                         <!-- Mensaje dinámico -->
                     </div>
                     <p class="small text-muted">
-                        Este botón solo marca el estado de entrega del estudiante.<br>
-                        Para ajustar tiempo o puntos, usa el botón ⚙️ Ajustar.
+                        <strong>Entregar Trabajo:</strong> Detiene el cronómetro del estudiante y guarda el tiempo actual.<br>
+                        <strong>Devolver Trabajo:</strong> Permite que el estudiante continúe trabajando.
                     </p>
                 </div>
 
                 <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="closeValidateModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-sm btn-success" id="btnValidateSubmit">Marcar como Entregado</button>
-                    <button type="button" class="btn btn-sm btn-warning" id="btnInvalidate" onclick="submitInvalidate()" style="display:none;">Marcar como Activo</button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="closeDeliveryModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-success" id="btnSubmitWork" style="display:none;">⏰ Entregar Trabajo</button>
+                    <button type="button" class="btn btn-sm btn-warning" id="btnReturnWork" onclick="submitReturn()" style="display:none;">🔄 Devolver Trabajo</button>
                 </div>
             </form>
         </div>
