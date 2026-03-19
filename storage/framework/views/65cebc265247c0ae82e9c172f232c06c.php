@@ -163,7 +163,14 @@
                 </div>
 
                 <div class="student-info">
-                    <div class="student-name"><?php echo e($participant->user->name); ?></div>
+                    <?php
+                        $words = explode(' ', trim($participant->user->name));
+                    ?>
+                    <div class="student-name" lang="es">
+                        <?php $__currentLoopData = $words; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $i => $word): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <span class="<?php echo e($i >= 2 ? 'student-name-surname' : 'student-name-given'); ?>"><?php echo e($word); ?></span>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                    </div>
                     <?php if($participant->finished_at): ?>
                         <div class="submission-time">⏱ <?php echo e(gmdate("H:i:s", $participant->duration_seconds)); ?></div>
                     <?php endif; ?>
@@ -286,7 +293,7 @@
         <div class="modal-body">
             <form id="deliveryForm" method="POST" class="score-form-modal">
                 <?php echo csrf_field(); ?>
-                <input type="hidden" name="action" id="deliveryAction" value="submit">
+                <input type="hidden" name="submit_action" id="deliveryAction" value="submit">
                 
                 <div class="text-center" style="padding: 1.5rem 0;">
                     <div id="deliveryMessage" style="font-size: 1.1rem; margin-bottom: 1.5rem; color: #6b7280;">

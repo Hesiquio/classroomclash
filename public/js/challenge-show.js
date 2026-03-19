@@ -349,7 +349,8 @@ function closeDeliveryModal() {
 
 function submitReturn() {
     deliveryAction.value = 'return';
-    deliveryForm.submit();
+    // Disparar el evento submit del form para que lo maneje handleAjaxForm via AJAX
+    deliveryForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 }
 
 function handleAjaxForm(form, callback) {
@@ -358,7 +359,9 @@ function handleAjaxForm(form, callback) {
         e.preventDefault();
         const formData = new FormData(form);
 
-        fetch(form.action, {
+        // getAttribute evita la colisión con inputs que tengan name="action"
+        const actionUrl = form.getAttribute('action');
+        fetch(actionUrl, {
             method: 'POST',
             body: formData,
             headers: {
@@ -368,21 +371,28 @@ function handleAjaxForm(form, callback) {
             }
         })
             .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
+                // Intentar leer el JSON siempre, incluso en errores 4xx/5xx
+                return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
             })
-            .then(data => {
-                if (data.success) {
+            .then(({ ok, status, data }) => {
+                if (ok && data.success) {
                     callback();
-                    fetchData(); // Refresh grid immediately
+                    fetchData();
                 } else {
-                    alert('Hubo un error al guardar. Por favor intenta de nuevo.');
+                    // Mostrar error real del servidor si está disponible
+                    let errorMsg = 'Hubo un error al guardar. Por favor intenta de nuevo.';
+                    if (data.message) {
+                        errorMsg = data.message;
+                    } else if (data.errors) {
+                        const firstError = Object.values(data.errors)[0];
+                        errorMsg = Array.isArray(firstError) ? firstError[0] : firstError;
+                    }
+                    alert(`Error (${status}): ${errorMsg}`);
                 }
             })
             .catch(error => {
-                alert('Hubo un error al guardar. Por favor intenta de nuevo.');
+                console.error('AJAX error:', error);
+                alert('Error de red. Verifica tu conexión e intenta de nuevo.');
             });
     });
 }

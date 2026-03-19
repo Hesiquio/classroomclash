@@ -162,7 +162,14 @@
                 </div>
 
                 <div class="student-info">
-                    <div class="student-name">{{ $participant->user->name }}</div>
+                    @php
+                        $words = explode(' ', trim($participant->user->name));
+                    @endphp
+                    <div class="student-name" lang="es">
+                        @foreach($words as $i => $word)
+                            <span class="{{ $i >= 2 ? 'student-name-surname' : 'student-name-given' }}">{{ $word }}</span>
+                        @endforeach
+                    </div>
                     @if($participant->finished_at)
                         <div class="submission-time">⏱ {{ gmdate("H:i:s", $participant->duration_seconds) }}</div>
                     @endif
@@ -284,7 +291,7 @@
         <div class="modal-body">
             <form id="deliveryForm" method="POST" class="score-form-modal">
                 @csrf
-                <input type="hidden" name="action" id="deliveryAction" value="submit">
+                <input type="hidden" name="submit_action" id="deliveryAction" value="submit">
                 
                 <div class="text-center" style="padding: 1.5rem 0;">
                     <div id="deliveryMessage" style="font-size: 1.1rem; margin-bottom: 1.5rem; color: #6b7280;">

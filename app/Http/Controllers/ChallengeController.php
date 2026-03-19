@@ -6,6 +6,7 @@ use App\Models\Challenge;
 use App\Models\Participant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class ChallengeController extends Controller
@@ -148,18 +149,25 @@ class ChallengeController extends Controller
     {
         $this->authorizeTeacher($challenge);
 
-        $validated = $request->validate([
-            'points' => 'required|integer|min:0',
-            'duration_seconds' => 'nullable|integer|min:1',
-        ]);
+        try {
+            $validated = $request->validate([
+                'points' => 'required|integer|min:0',
+                'duration_seconds' => 'nullable|integer|min:0',
+            ]);
+        } catch (ValidationException $e) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'errors' => $e->errors()], 422);
+            }
+            throw $e;
+        }
 
         $updateData = [
             'points' => $validated['points'],
             'participated' => true,
         ];
 
-        // Update duration if provided
-        if (isset($validated['duration_seconds']) && $validated['duration_seconds'] > 0) {
+        // Update duration if provided (including 0)
+        if (array_key_exists('duration_seconds', $validated) && $validated['duration_seconds'] !== null) {
             $updateData['duration_seconds'] = $validated['duration_seconds'];
         }
 
@@ -176,11 +184,18 @@ class ChallengeController extends Controller
     {
         $this->authorizeTeacher($challenge);
 
-        $validated = $request->validate([
-            'action' => 'required|in:submit,return',
-        ]);
+        try {
+            $validated = $request->validate([
+                'submit_action' => 'required|in:submit,return',
+            ]);
+        } catch (ValidationException $e) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'errors' => $e->errors()], 422);
+            }
+            throw $e;
+        }
 
-        if ($validated['action'] === 'return') {
+        if ($validated['submit_action'] === 'return') {
             // Return work - clear finished_at so student can continue working
             $participant->update([
                 'finished_at' => null,
