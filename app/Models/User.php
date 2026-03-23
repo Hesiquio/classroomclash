@@ -15,6 +15,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'claim_code',
+        'is_guest',
     ];
 
     protected $hidden = [
@@ -24,7 +26,8 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed',
+        'password'         => 'hashed',
+        'is_guest'         => 'boolean',
     ];
 
     public function isDocente(): bool
@@ -35,6 +38,20 @@ class User extends Authenticatable
     public function isEstudiante(): bool
     {
         return $this->role === 'estudiante';
+    }
+
+    public function isGuest(): bool
+    {
+        return (bool) $this->is_guest;
+    }
+
+    /** Genera un código de reclamo único de 10 caracteres alfanuméricos */
+    public static function generateClaimCode(): string
+    {
+        do {
+            $code = strtoupper(substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 8));
+        } while (self::where('claim_code', $code)->exists());
+        return $code;
     }
 
     public function challenges()

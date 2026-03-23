@@ -17,7 +17,66 @@ class DashboardController extends Controller
             return view('dashboard.docente', compact('challenges'));
         }
 
-        return view('dashboard.estudiante');
+        // Desafíos activos en los que participa
+        $myParticipations = $user->participations()
+            ->with('challenge')
+            ->whereHas('challenge', fn($q) => $q->where('is_active', true))
+            ->latest()
+            ->get();
+
+        // ── Estadísticas históricas (todos los desafíos) ──────────────────
+        $allParticipations = $user->participations()
+            ->with(['challenge.participants'])
+            ->get();
+
+        $totalChallenges  = $allParticipations->count();
+        $totalPoints      = $allParticipations->sum('points');
+        $bestPoints       = $allParticipations->max('points') ?? 0;
+        $submitted        = $allParticipations->whereNotNull('finished_at')->count();
+
+        $top3Count  = 0;
+        $bestRank   = null;
+        $rankPcts   = [];
+
+        foreach ($allParticipations as $p) {
+            $allInChallenge = $p->challenge->participants;
+            $total = $allInChallenge->count();
+            if ($total === 0) continue;
+
+            // Rank = cuántos tienen MÁS puntos + 1
+            $rank = $allInChallenge->where('points', '>', $p->points)->count() + 1;
+
+            if ($rank <= 3)                              $top3Count++;
+            if ($bestRank === null || $rank < $bestRank) $bestRank = $rank;
+
+            // % de rendimiento: 100% = 1er lugar, 0% = último
+            $rankPcts[] = round(($total - $rank + 1) / $total * 100);
+        }
+
+        $avgPerformance = count($rankPcts) > 0 ? round(array_sum($rankPcts) / count($rankPcts)) : 0;
+
+        // Mensaje motivacional según rendimiento promedio
+        $motivationalMsg = match(true) {
+            $totalChallenges === 0       => ['🌱 ¡Empieza tu primer desafío!',              'info'],
+            $avgPerformance >= 80        => ['🔥 ¡Eres uno de los mejores de la clase!',     'gold'],
+            $avgPerformance >= 60        => ['⭐ ¡Excelente rendimiento! Sigue así.',         'green'],
+            $avgPerformance >= 40        => ['💪 Vas por buen camino, sigue mejorando.',      'blue'],
+            $top3Count > 0               => ['🏅 ¡Has alcanzado el top 3! No te rindas.',    'purple'],
+            default                      => ['📚 Cada desafío es una oportunidad de crecer.', 'gray'],
+        };
+
+        $stats = [
+            'total_challenges' => $totalChallenges,
+            'total_points'     => $totalPoints,
+            'best_points'      => $bestPoints,
+            'submitted'        => $submitted,
+            'top3_count'       => $top3Count,
+            'best_rank'        => $bestRank,
+            'avg_performance'  => $avgPerformance,
+            'motivational'     => $motivationalMsg,
+        ];
+
+        return view('dashboard.estudiante', compact('myParticipations', 'stats'));
     }
 
     public function archived()
@@ -77,9 +136,23 @@ class DashboardController extends Controller
 
         $challenge->participants()->create([
             'user_id' => Auth::id(),
-            'points' => 0,
+            'points'  => 0,
         ]);
 
         return redirect()->route('challenge.show', $challenge)->with('success', 'Te has unido al desafío exitosamente.');
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'name'  => ['required', 'string', 'min:2', 'max:80'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+        ]);
+
+        $user->update($validated);
+
+        return back()->with('success', '¡Perfil actualizado correctamente!');
     }
 }

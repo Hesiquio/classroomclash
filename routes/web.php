@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChallengeController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GuestStudentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -15,6 +16,10 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('login');
 });
 
+// Ruta pública: estudiante invitado entra con su código
+Route::get('/claim',  [GuestStudentController::class, 'claimForm'])->name('guest.claim.form');
+Route::post('/claim', [GuestStudentController::class, 'claimLogin'])->name('guest.claim.login');
+
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -22,6 +27,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/archived', [DashboardController::class, 'archived'])->name('dashboard.archived');
     Route::post('/dashboard/challenge/create', [DashboardController::class, 'createChallenge'])->name('challenge.create');
     Route::post('/dashboard/challenge/join', [DashboardController::class, 'joinChallenge'])->name('challenge.join');
+    Route::put('/profile', [DashboardController::class, 'updateProfile'])->name('profile.update');
+
+    // Estudiantes invitados
+    Route::post('/students/quick-create', [GuestStudentController::class, 'quickCreate'])->name('guest.quick-create');
+    Route::put('/profile/claim-upgrade',  [GuestStudentController::class, 'claimUpgrade'])->name('guest.upgrade');
 
     Route::get('/challenge/{challenge}', [ChallengeController::class, 'show'])->name('challenge.show');
     Route::get('/challenge/{challenge}/data', [ChallengeController::class, 'getData'])->name('challenge.data');

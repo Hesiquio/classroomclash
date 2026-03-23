@@ -9,6 +9,9 @@
         <a href="{{ route('dashboard.archived') }}" class="btn btn-secondary" style="line-height: 1.5;">
             📂 Archivados
         </a>
+        <button type="button" class="btn btn-outline-primary" style="line-height:1.5;" onclick="toggleModal('quickStudentModal')">
+            👥 Crear Estudiantes
+        </button>
         <button type="button" class="btn btn-primary" style="line-height: 1.5;" onclick="toggleModal('createChallengeModal')">
             Crear Nuevo Desafío
         </button>
@@ -68,6 +71,78 @@
         @endforeach
     </div>
 @endif
+
+{{-- Mostrar códigos recién generados --}}
+@if(session('guest_created'))
+<div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:1.25rem; margin-bottom:1.5rem;">
+    <h3 style="color:#166534; font-size:1rem; margin-bottom:.75rem;">✅ Estudiantes creados — guarda estos códigos</h3>
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead>
+            <tr style="background:#dcfce7;">
+                <th style="padding:.5rem .75rem; text-align:left; border-radius:6px 0 0 6px;">Estudiante</th>
+                <th style="padding:.5rem .75rem; text-align:center;">Código de acceso</th>
+                <th style="padding:.5rem .75rem; text-align:center; border-radius:0 6px 6px 0;">Enlace directo</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach(session('guest_created') as $g)
+            <tr style="border-bottom:1px solid #bbf7d0;">
+                <td style="padding:.5rem .75rem; font-weight:600;">{{ $g['name'] }}</td>
+                <td style="padding:.5rem .75rem; text-align:center;">
+                    <code style="background:#dcfce7; padding:.2rem .6rem; border-radius:6px; font-size:1rem; letter-spacing:2px; font-weight:700; color:#166534;">{{ $g['code'] }}</code>
+                </td>
+                <td style="padding:.5rem .75rem; text-align:center; font-size:.8rem; color:#16a34a;">
+                    {{ url('/claim') }}?c={{ $g['code'] }}
+                </td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    <p style="font-size:.8rem; color:#15803d; margin-top:.75rem;">
+        ⚠️ Guarda estos códigos antes de salir — no se mostrarán de nuevo.
+        El estudiante puede entrar en <strong>{{ url('/claim') }}</strong>
+    </p>
+</div>
+@endif
+
+{{-- Modal: Crear Estudiantes Invitados --}}
+<div id="quickStudentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>👥 Crear Estudiantes Invitados</h2>
+            <button type="button" class="close" onclick="toggleModal('quickStudentModal')">&times;</button>
+        </div>
+        <form action="{{ route('guest.quick-create') }}" method="POST">
+            @csrf
+            <div class="modal-body">
+                <p style="font-size:.9rem; color:#64748b; margin-bottom:.75rem;">
+                    Escribe un nombre por línea. Se generará un código único para cada estudiante.
+                    El estudiante puede usarlo para ingresar en <strong>{{ url('/claim') }}</strong>
+                </p>
+                <div class="form-group">
+                    <label for="guest_names">Nombres de estudiantes</label>
+                    <textarea
+                        id="guest_names"
+                        name="names"
+                        class="form-control"
+                        rows="6"
+                        placeholder="Juan García&#10;María López&#10;Carlos Pérez&#10;...uno por línea"
+                        required></textarea>
+                    @error('names')
+                        <div style="color:#ef4444; font-size:.85rem; margin-top:.3rem;">{{ $message }}</div>
+                    @enderror
+                </div>
+                <p style="font-size:.8rem; color:#94a3b8; margin-top:.5rem;">
+                    💡 Puedes crear hasta 30 estudiantes a la vez. Los códigos se mostrarán para que puedas compartirlos.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="toggleModal('quickStudentModal')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Generar Códigos</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <div id="createChallengeModal" class="modal">
     <div class="modal-content">
