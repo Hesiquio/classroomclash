@@ -1,41 +1,23 @@
-// Challenge Show Page Logic
+// ============================================================
+// Challenge Show — Lógica principal de la pizarra
+// ============================================================
 
-// State variables initialized from config
-let seconds = window.ChallengeConfig.seconds;
-let isRunning = window.ChallengeConfig.isRunning;
+// --- Estado global (inicializado desde el servidor) ---
+let seconds    = window.ChallengeConfig.seconds;
+let isRunning  = window.ChallengeConfig.isRunning;
+let wasRunning = window.ChallengeConfig.isRunning;
+
 const { challengeId, isDocente, userId, minPoints, maxPoints } = window.ChallengeConfig;
+
 const timerElement = document.getElementById('timer');
+
 let currentParticipantPosition = 0;
-let totalParticipants = 0;
-let suggestedPoints = 0;
+let totalParticipants          = 0;
+let suggestedPoints            = 0;
 
-// WhatsApp Share functionality
-function shareOnWhatsApp() {
-    const codeElement = document.getElementById('challengeCode');
-    if (!codeElement) {
-        alert('Error: No se encontró el código del desafío.');
-        return;
-    }
-
-    const codeText = codeElement.textContent.trim();
-    if (!codeText) {
-        alert('Error: El código está vacío.');
-        return;
-    }
-
-    const message = `¡Únete a mi desafío en Classroom Clash! 🚀\n\nCódigo de acceso: *${codeText}*\n\nIngresa aquí: ${window.location.origin}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-    // Try opening in new tab
-    const newWindow = window.open(whatsappUrl, '_blank');
-
-    // Check if blocked
-    if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-        alert('Por favor habilita las ventanas emergentes para compartir en WhatsApp.');
-        // Fallback to current window
-        window.location.href = whatsappUrl;
-    }
-}
+// ============================================================
+// Utilidades
+// ============================================================
 
 function formatTime(totalSeconds) {
     const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
@@ -46,12 +28,50 @@ function formatTime(totalSeconds) {
 
 function calculateSuggestedPoints(position, total) {
     if (total <= 1) return maxPoints;
-    const pointsRange = maxPoints - minPoints;
-    const positionFactor = (total - position) / (total - 1);
-    return Math.round(minPoints + (pointsRange * positionFactor));
+    const range  = maxPoints - minPoints;
+    const factor = (total - position) / (total - 1);
+    return Math.round(minPoints + (range * factor));
 }
 
-let wasRunning = window.ChallengeConfig.isRunning;
+// Petición AJAX genérica (POST con CSRF)
+function ajaxPost(url, body, onSuccess, onError) {
+    const formData = body instanceof FormData ? body : (() => {
+        const fd = new FormData();
+        Object.entries(body).forEach(([k, v]) => fd.append(k, v));
+        return fd;
+    })();
+
+    formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+
+    fetch(url, {
+        method:  'POST',
+        body:    formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept':           'application/json',
+            'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        },
+    })
+        .then(res => res.json().then(data => ({ ok: res.ok, status: res.status, data })))
+        .then(({ ok, status, data }) => {
+            if (ok && data.success) {
+                onSuccess(data);
+            } else {
+                let msg = 'Error al guardar. Intenta de nuevo.';
+                if (data.message)      msg = data.message;
+                else if (data.errors)  msg = Object.values(data.errors).flat()[0];
+                onError ? onError(msg, status) : alert(`Error (${status}): ${msg}`);
+            }
+        })
+        .catch(err => {
+            console.error('AJAX error:', err);
+            alert('Error de red. Verifica tu conexión.');
+        });
+}
+
+// ============================================================
+// Cronómetro global
+// ============================================================
 
 setInterval(() => {
     if (isRunning) {
@@ -59,7 +79,7 @@ setInterval(() => {
         if (timerElement) timerElement.textContent = formatTime(seconds);
     }
 
-    // Detectar cuando el desafío se acaba de finalizar
+    // Detectar transición running → parado (desafío finalizado en otro cliente)
     if (wasRunning && !isRunning) {
         handleChallengeFinalized();
     }
@@ -67,207 +87,245 @@ setInterval(() => {
 }, 1000);
 
 /**
- * Se llama UNA vez cuando isRunning pasa de true → false (desafío finalizado).
- * Inyecta el tiempo global actual en las tarjetas que aún no muestran tiempo.
+ * Se dispara UNA vez cuando el desafío pasa de activo a finalizado.
+ * Inyecta tiempo estimado en tarjetas sin tiempo registrado.
  */
 function handleChallengeFinalized() {
-    // Mostrar banner de finalización si aún no existe
     if (!document.getElementById('finalizedBanner')) {
         const banner = document.createElement('div');
         banner.id = 'finalizedBanner';
-        banner.style.cssText = [
-            'position:fixed', 'top:1rem', 'left:50%',
-            'transform:translateX(-50%)', 'z-index:9999',
-            'background:linear-gradient(135deg,#1e293b,#334155)',
-            'color:white', 'padding:0.75rem 1.5rem',
-            'border-radius:10px', 'font-weight:700',
-            'box-shadow:0 4px 20px rgba(0,0,0,0.3)',
-            'font-size:1rem', 'letter-spacing:0.02em',
-            'animation:fadeIn 0.4s ease'
-        ].join(';');
+        Object.assign(banner.style, {
+            position:     'fixed',
+            top:          '1rem',
+            left:         '50%',
+            transform:    'translateX(-50%)',
+            zIndex:       '9999',
+            background:   'linear-gradient(135deg,#1e293b,#334155)',
+            color:        'white',
+            padding:      '0.75rem 1.5rem',
+            borderRadius: '10px',
+            fontWeight:   '700',
+            boxShadow:    '0 4px 20px rgba(0,0,0,0.3)',
+            fontSize:     '1rem',
+        });
         banner.textContent = '⏹️ Desafío finalizado — ' + formatTime(seconds);
         document.body.appendChild(banner);
-        setTimeout(() => banner.remove(), 5000);
+        setTimeout(() => banner.remove(), 6000);
     }
 
-    // Inyectar tiempo estimado en tarjetas sin tiempo registrado
+    // Mostrar tiempo estimado en tarjetas que aún no tienen tiempo registrado
     document.querySelectorAll('.participant-card:not(.placeholder)').forEach(card => {
         const infoDiv = card.querySelector('.student-info');
         if (!infoDiv) return;
         if (!infoDiv.querySelector('.submission-time')) {
             const timeDiv = document.createElement('div');
             timeDiv.className = 'submission-time submission-time-estimated';
-            timeDiv.title = 'Tiempo estimado al finalizar el desafío';
+            timeDiv.title     = 'Tiempo estimado al finalizar el desafío';
             timeDiv.textContent = `⏱ ~${formatTime(seconds)}`;
             infoDiv.appendChild(timeDiv);
         }
     });
 }
 
+// ============================================================
+// Polling — actualización cada 3 s
+// ============================================================
+
 function fetchData() {
     fetch(`/challenge/${challengeId}/data`)
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
-            seconds = data.challenge.current_time_seconds;
+            seconds   = data.challenge.current_time_seconds;
             isRunning = data.challenge.is_running;
             if (timerElement) timerElement.textContent = formatTime(seconds);
             updateParticipantsGrid(data.participants);
         })
-        .catch(() => { });
+        .catch(() => {}); // silenciar errores de red temporales
 }
 
-function updateParticipantsGrid(participants) {
-    const scoreModal = document.getElementById('scoreModal');
-    const deliveryModal = document.getElementById('deliveryModal');
+setInterval(fetchData, 3000);
 
-    if (scoreModal && scoreModal.style.display === 'flex') return;
-    if (deliveryModal && deliveryModal.style.display === 'flex') return;
+// ============================================================
+// Actualización de tarjetas de participantes (AJAX polling)
+// ============================================================
+
+function updateParticipantsGrid(participants) {
+    // No actualizar mientras hay un modal abierto (evita race conditions)
+    const openModals = ['scoreModal', 'deliveryModal'];
+    if (openModals.some(id => {
+        const el = document.getElementById(id);
+        return el && el.style.display === 'flex';
+    })) return;
 
     participants.forEach((p, index) => {
-        let card = document.getElementById(`participant-card-${p.id}`);
+        const card = document.getElementById(`participant-card-${p.id}`);
 
         if (!card) {
-            if (participants.length !== document.querySelectorAll('.participant-card:not(.placeholder)').length) {
+            // Nuevo participante detectado → recargar página
+            const domCount = document.querySelectorAll('.participant-card:not(.placeholder)').length;
+            if (participants.length !== domCount) {
                 location.reload();
-                return;
             }
-        } else {
-            // Update Rank Styling (preserve current-user class)
-            let classes = `participant-card ${index < 3 ? 'top-rank rank-' + (index + 1) : ''}`;
-            if (p.user_id === userId) {
-                classes += ' current-user';
-            }
-            card.className = classes;
+            return;
+        }
 
-            const badge = card.querySelector('.position-badge');
-            if (index === 0) badge.innerHTML = '<span class="medal">🥇</span>';
+        // --- Rango y posición ---
+        let classes = `participant-card ${index < 3 ? 'top-rank rank-' + (index + 1) : ''}`;
+        if (p.user_id === userId) classes += ' current-user';
+        card.className = classes;
+
+        const badge = card.querySelector('.position-badge');
+        if (badge) {
+            if      (index === 0) badge.innerHTML = '<span class="medal">🥇</span>';
             else if (index === 1) badge.innerHTML = '<span class="medal">🥈</span>';
             else if (index === 2) badge.innerHTML = '<span class="medal">🥉</span>';
-            else badge.innerHTML = `<span class="rank-number">#${index + 1}</span>`;
+            else                  badge.innerHTML = `<span class="rank-number">#${index + 1}</span>`;
+        }
 
-            card.querySelector('.points-value').textContent = p.points;
+        // --- Puntos ---
+        const pointsEl = card.querySelector('.points-value');
+        if (pointsEl) pointsEl.textContent = p.points;
 
-            if (isDocente) {
-                const settingsBtn = card.querySelector('.btn-icon.settings');
-                if (settingsBtn) {
-                    settingsBtn.setAttribute('onclick', `openScoreModal(${p.id}, '${p.name}', ${p.points}, ${p.duration_seconds || 0}, ${p.finished_at ? 'true' : 'false'})`);
-                }
+        // --- Botones del docente ---
+        if (isDocente) {
+            // Botón ⚙️ ajustar
+            const settingsBtn = card.querySelector('.btn-icon.settings');
+            if (settingsBtn) {
+                settingsBtn.setAttribute('onclick',
+                    `openScoreModal(${p.id}, '${escapeForJs(p.name)}', ${p.points}, ${p.duration_seconds || 0}, ${p.finished_at ? 'true' : 'false'})`
+                );
+            }
 
-                const actionsDiv = card.querySelector('.card-actions');
-                let deliveryBtn = card.querySelector('.btn-icon.validate'); // We kept the class 'validate' for styling
-
+            // Botón entregar/devolver — crearlo si no existe
+            const actionsDiv = card.querySelector('.card-actions');
+            if (actionsDiv) {
+                let deliveryBtn = card.querySelector('.btn-icon.validate');
                 if (!deliveryBtn) {
                     deliveryBtn = document.createElement('button');
-                    deliveryBtn.type = 'button';
+                    deliveryBtn.type      = 'button';
                     deliveryBtn.className = 'btn-icon validate';
                     actionsDiv.appendChild(deliveryBtn);
                 }
 
-                // Update button state
                 if (p.finished_at) {
                     deliveryBtn.innerHTML = '🔄';
-                    deliveryBtn.title = 'Devolver Trabajo';
+                    deliveryBtn.title     = 'Devolver Trabajo';
                     deliveryBtn.classList.add('validated');
-                    deliveryBtn.setAttribute('onclick', `openDeliveryModal(${p.id}, '${p.name}', true)`);
+                    deliveryBtn.setAttribute('onclick', `openDeliveryModal(${p.id}, '${escapeForJs(p.name)}', true)`);
                 } else {
                     deliveryBtn.innerHTML = '⏰';
-                    deliveryBtn.title = 'Entregar Trabajo';
+                    deliveryBtn.title     = 'Entregar Trabajo';
                     deliveryBtn.classList.remove('validated');
-                    deliveryBtn.setAttribute('onclick', `openDeliveryModal(${p.id}, '${p.name}', false)`);
+                    deliveryBtn.setAttribute('onclick', `openDeliveryModal(${p.id}, '${escapeForJs(p.name)}', false)`);
                 }
             }
+        }
 
-            const infoDiv = card.querySelector('.student-info');
+        // --- Tiempo de entrega ---
+        const infoDiv = card.querySelector('.student-info');
+        if (infoDiv) {
             let timeDiv = infoDiv.querySelector('.submission-time');
-            if (p.finished_at) {
+
+            if (p.finished_at && p.formatted_time) {
+                // Estudiante entregó: mostrar o actualizar tiempo
                 if (!timeDiv) {
                     timeDiv = document.createElement('div');
                     timeDiv.className = 'submission-time';
                     infoDiv.appendChild(timeDiv);
                 }
+                // Quitar clase de estimado si la tenía
+                timeDiv.classList.remove('submission-time-estimated');
                 timeDiv.textContent = `⏱ ${p.formatted_time}`;
+            } else if (!p.finished_at && timeDiv) {
+                // Trabajo devuelto: eliminar el tiempo de la tarjeta
+                timeDiv.remove();
             }
         }
     });
 }
 
-setInterval(fetchData, 3000);
+/** Escapa comillas simples en nombres para uso seguro en atributos onclick */
+function escapeForJs(str) {
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
 
-const modal = document.getElementById('scoreModal');
-const modalName = document.getElementById('modalStudentName');
-const modalInput = document.getElementById('modalPointsInput');
+// ============================================================
+// Modal de ajuste de puntos/tiempo (⚙️ ScoreModal)
+// ============================================================
+
+const scoreModal  = document.getElementById('scoreModal');
+const modalName   = document.getElementById('modalStudentName');
+const modalInput  = document.getElementById('modalPointsInput');
+const modalForm   = document.getElementById('scoreForm');
+
+// Validación en tiempo real del input de puntos
 if (modalInput) {
     modalInput.addEventListener('input', function () {
         let val = parseInt(this.value);
-        if (val > maxPoints) this.value = maxPoints;
-        if (val < 0) this.value = 0;
+        if (isNaN(val) || val < 0)         this.value = 0;
+        if (val > maxPoints)               this.value = maxPoints;
     });
 }
-const modalForm = document.getElementById('scoreForm');
 
 function openScoreModal(participantId, name, points, durationSeconds, hasFinished) {
-    modalName.textContent = '⚙️ Ajustar: ' + name;
-    modalInput.value = points;
-    modalForm.action = `/challenge/${challengeId}/participant/${participantId}/score`;
+    modalName.textContent  = '⚙️ Ajustar: ' + name;
+    modalInput.value       = points;
+
+    // Usar setAttribute en lugar de .action = para evitar colisiones DOM
+    modalForm.setAttribute('action', `/challenge/${challengeId}/participant/${participantId}/score`);
 
     const deleteForm = document.getElementById('deleteParticipantForm');
     if (deleteForm) {
-        deleteForm.action = `/challenge/${challengeId}/participant/${participantId}/delete`;
+        deleteForm.setAttribute('action', `/challenge/${challengeId}/participant/${participantId}/delete`);
     }
 
-    // Siempre mostrar la sección de tiempo
-    const timeSection = document.getElementById('timeAdjustSection');
+    // Sección de tiempo — siempre visible
+    const timeSection     = document.getElementById('timeAdjustSection');
     const timeSectionTitle = document.getElementById('timeSectionTitle');
-    const modalMinutes = document.getElementById('modalMinutes');
-    const modalSeconds = document.getElementById('modalSeconds');
+    const modalMinutes    = document.getElementById('modalMinutes');
+    const modalSeconds    = document.getElementById('modalSeconds');
 
     timeSection.style.display = 'block';
 
-    if (hasFinished && durationSeconds !== undefined && durationSeconds > 0) {
-        // Estudiante ya entregó: usar su tiempo registrado
-        const mins = Math.floor(durationSeconds / 60);
-        const secs = durationSeconds % 60;
-        modalMinutes.value = mins;
-        modalSeconds.value = secs;
+    if (hasFinished && durationSeconds > 0) {
+        modalMinutes.value = Math.floor(durationSeconds / 60);
+        modalSeconds.value = durationSeconds % 60;
         if (timeSectionTitle) timeSectionTitle.textContent = '⏱️ Tiempo Final';
     } else {
-        // Estudiante aún no entregó: pre-cargar con el tiempo actual del cronómetro
-        const currentMins = Math.floor(seconds / 60);
-        const currentSecs = seconds % 60;
-        modalMinutes.value = currentMins;
-        modalSeconds.value = currentSecs;
+        // Pre-cargar con el tiempo actual del cronómetro global
+        modalMinutes.value = Math.floor(seconds / 60);
+        modalSeconds.value = seconds % 60;
         if (timeSectionTitle) timeSectionTitle.textContent = '⏱️ Tiempo de Actividad';
     }
 
-    // Find participant position
-    const participantCards = document.querySelectorAll('.participant-card:not(.placeholder)');
-    totalParticipants = participantCards.length;
-
-    participantCards.forEach((card, index) => {
+    // Calcular posición actual y puntos sugeridos
+    const cards = document.querySelectorAll('.participant-card:not(.placeholder)');
+    totalParticipants = cards.length;
+    currentParticipantPosition = 1;
+    cards.forEach((card, index) => {
         if (card.id === `participant-card-${participantId}`) {
             currentParticipantPosition = index + 1;
         }
     });
 
-    // Calculate and show suggested points
     suggestedPoints = calculateSuggestedPoints(currentParticipantPosition, totalParticipants);
-    document.getElementById('suggestedPointsValue').textContent = suggestedPoints;
-    document.getElementById('suggestedPointsInfo').style.display = 'block';
+    const suggestedEl = document.getElementById('suggestedPointsValue');
+    const suggestedInfo = document.getElementById('suggestedPointsInfo');
+    if (suggestedEl)   suggestedEl.textContent  = suggestedPoints;
+    if (suggestedInfo) suggestedInfo.style.display = 'block';
 
-    modal.style.display = 'flex';
+    scoreModal.style.display = 'flex';
 }
 
 function closeScoreModal() {
-    if (modal) modal.style.display = 'none';
+    if (scoreModal) scoreModal.style.display = 'none';
     const info = document.getElementById('suggestedPointsInfo');
     if (info) info.style.display = 'none';
 }
 
 function adjustModalScore(amount) {
-    let current = parseInt(modalInput.value) || 0;
-    let newVal = current + amount;
-    if (newVal < 0) newVal = 0;
-    if (newVal > maxPoints) newVal = maxPoints;
+    let newVal = (parseInt(modalInput.value) || 0) + amount;
+    newVal = Math.max(0, Math.min(maxPoints, newVal));
     modalInput.value = newVal;
 }
 
@@ -275,66 +333,52 @@ function applySuggestedPoints() {
     modalInput.value = suggestedPoints;
 }
 
-// Ajustar tiempo del modal (penalización positiva o reducción negativa)
-function setPenalty(penaltySecs) {
-    const modalMinutes = document.getElementById('modalMinutes');
-    const modalSeconds = document.getElementById('modalSeconds');
-
-    let mins = parseInt(modalMinutes.value) || 0;
-    let secs = parseInt(modalSeconds.value) || 0;
-
-    let totalSecs = (mins * 60) + secs + penaltySecs;
-    if (totalSecs < 0) totalSecs = 0; // No permitir tiempo negativo
-
-    modalMinutes.value = Math.floor(totalSecs / 60);
-    modalSeconds.value = totalSecs % 60;
+// Ajustar tiempo: positivo = penalización, negativo = reducción
+function adjustModalTime(deltaSecs) {
+    const minsEl = document.getElementById('modalMinutes');
+    const secsEl = document.getElementById('modalSeconds');
+    let total = ((parseInt(minsEl.value) || 0) * 60) + (parseInt(secsEl.value) || 0) + deltaSecs;
+    if (total < 0) total = 0;
+    minsEl.value = Math.floor(total / 60);
+    secsEl.value = total % 60;
 }
 
-// Alias para compatibilidad con botones del HTML que llaman addModalPenalty
-function addModalPenalty(penaltySecs) {
-    setPenalty(penaltySecs);
-}
+// Aliases para compatibilidad con botones del HTML
+function setPenalty(secs)         { adjustModalTime(secs);  }
+function addModalPenalty(secs)    { adjustModalTime(secs);  }
+function subtractModalTime(secs)  { adjustModalTime(-secs); }
 
-// Ajustar tiempo: restar segundos (para reducir el tiempo)
-function subtractModalTime(penaltySecs) {
-    setPenalty(-penaltySecs);
-}
+// ============================================================
+// Modal de entrega/devolución de trabajo (⏰ DeliveryModal)
+// ============================================================
 
-// Handle score form submission to include time
-if (modalForm) {
-    modalForm.addEventListener('submit', function (e) {
-        const modalDurationInput = document.getElementById('modalDurationInput');
-        const modalMinutes = document.getElementById('modalMinutes');
-        const modalSeconds = document.getElementById('modalSeconds');
-
-        if (modalMinutes && modalSeconds && modalMinutes.value !== '' && modalSeconds.value !== '') {
-            const mins = parseInt(modalMinutes.value) || 0;
-            const secs = parseInt(modalSeconds.value) || 0;
-            modalDurationInput.value = (mins * 60) + secs;
-        }
-    });
-}
-
-const deliveryModal = document.getElementById('deliveryModal');
+const deliveryModal     = document.getElementById('deliveryModal');
 const deliveryModalName = document.getElementById('deliveryModalStudentName');
-const deliveryForm = document.getElementById('deliveryForm');
-const deliveryAction = document.getElementById('deliveryAction');
-const btnSubmitWork = document.getElementById('btnSubmitWork');
-const btnReturnWork = document.getElementById('btnReturnWork');
-const deliveryMessage = document.getElementById('deliveryMessage');
+const deliveryForm      = document.getElementById('deliveryForm');
+const deliveryAction    = document.getElementById('deliveryAction');
+const btnSubmitWork     = document.getElementById('btnSubmitWork');
+const btnReturnWork     = document.getElementById('btnReturnWork');
+const deliveryMessage   = document.getElementById('deliveryMessage');
 
 function openDeliveryModal(participantId, name, hasFinished) {
-    deliveryModalName.textContent = hasFinished ? `Devolver Trabajo: ${name}` : `Entregar Trabajo: ${name}`;
-    deliveryForm.action = `/challenge/${challengeId}/participant/${participantId}/validate`;
+    // Usar setAttribute para evitar colisión con inputs hijos
+    deliveryForm.setAttribute('action', `/challenge/${challengeId}/participant/${participantId}/validate`);
 
-    // Set message and buttons based on delivery status
+    deliveryModalName.textContent = hasFinished
+        ? `🔄 Devolver Trabajo: ${name}`
+        : `⏰ Entregar Trabajo: ${name}`;
+
     if (hasFinished) {
-        deliveryMessage.innerHTML = '🔄 Este estudiante ya <strong>entregó su trabajo</strong>.<br>¿Deseas <strong>devolverlo</strong> para que continúe trabajando?';
+        deliveryMessage.innerHTML =
+            '🔄 Este estudiante ya <strong>entregó su trabajo</strong>.<br>' +
+            '¿Deseas <strong>devolverlo</strong> para que continúe trabajando?';
         btnSubmitWork.style.display = 'none';
         btnReturnWork.style.display = 'inline-block';
         deliveryAction.value = 'return';
     } else {
-        deliveryMessage.innerHTML = '⏰ ¿Deseas marcar el trabajo de este estudiante como <strong>entregado</strong>?<br>Esto detendrá su cronómetro y guardará el tiempo actual.';
+        deliveryMessage.innerHTML =
+            '⏰ ¿Deseas marcar el trabajo de este estudiante como <strong>entregado</strong>?<br>' +
+            'Esto guardará el tiempo actual del cronómetro.';
         btnSubmitWork.style.display = 'inline-block';
         btnReturnWork.style.display = 'none';
         deliveryAction.value = 'submit';
@@ -347,77 +391,101 @@ function closeDeliveryModal() {
     if (deliveryModal) deliveryModal.style.display = 'none';
 }
 
+// "Devolver Trabajo" — dispara el submit del form via AJAX
 function submitReturn() {
     deliveryAction.value = 'return';
-    // Disparar el evento submit del form para que lo maneje handleAjaxForm via AJAX
     deliveryForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 }
 
-function handleAjaxForm(form, callback) {
+// ============================================================
+// Handler AJAX genérico para formularios con modal
+// (Un solo listener por form, registrado en DOMContentLoaded)
+// ============================================================
+
+function registerAjaxForm(form, onSuccess) {
     if (!form) return;
     form.addEventListener('submit', function (e) {
         e.preventDefault();
+
+        // Capturar todos los campos del form en FormData
         const formData = new FormData(form);
 
-        // getAttribute evita la colisión con inputs que tengan name="action"
-        const actionUrl = form.getAttribute('action');
-        fetch(actionUrl, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        })
-            .then(response => {
-                // Intentar leer el JSON siempre, incluso en errores 4xx/5xx
-                return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
-            })
-            .then(({ ok, status, data }) => {
-                if (ok && data.success) {
-                    callback();
-                    fetchData();
-                } else {
-                    // Mostrar error real del servidor si está disponible
-                    let errorMsg = 'Hubo un error al guardar. Por favor intenta de nuevo.';
-                    if (data.message) {
-                        errorMsg = data.message;
-                    } else if (data.errors) {
-                        const firstError = Object.values(data.errors)[0];
-                        errorMsg = Array.isArray(firstError) ? firstError[0] : firstError;
-                    }
-                    alert(`Error (${status}): ${errorMsg}`);
-                }
-            })
-            .catch(error => {
-                console.error('AJAX error:', error);
-                alert('Error de red. Verifica tu conexión e intenta de nuevo.');
-            });
+        // Consolidar tiempo (min:seg → duration_seconds) si aplica
+        const minsEl = form.querySelector('#modalMinutes');
+        const secsEl = form.querySelector('#modalSeconds');
+        const durationInput = form.querySelector('#modalDurationInput');
+        if (minsEl && secsEl && durationInput) {
+            const totalSecs = ((parseInt(minsEl.value) || 0) * 60) + (parseInt(secsEl.value) || 0);
+            durationInput.value = totalSecs;
+            formData.set('duration_seconds', totalSecs);
+        }
+
+        const url = form.getAttribute('action');
+        if (!url) {
+            console.error('Form sin action:', form.id);
+            return;
+        }
+
+        ajaxPost(url, formData,
+            () => { onSuccess(); fetchData(); },
+            (msg, status) => alert(`Error (${status}): ${msg}`)
+        );
     });
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    const modalForm = document.getElementById('scoreForm');
-    const deliveryForm = document.getElementById('deliveryForm');
+document.addEventListener('DOMContentLoaded', () => {
+    registerAjaxForm(document.getElementById('scoreForm'),    closeScoreModal);
+    registerAjaxForm(document.getElementById('deliveryForm'), closeDeliveryModal);
 
-    if (modalForm) {
-        handleAjaxForm(modalForm, closeScoreModal);
-    }
+    // Búsqueda de estudiantes en el modal Add Student
+    const searchInput  = document.getElementById('studentSearchInput');
+    const studentSelect = document.getElementById('studentSelect');
+    const noStudents   = document.getElementById('noStudentsFound');
 
-    if (deliveryForm) {
-        handleAjaxForm(deliveryForm, closeDeliveryModal);
+    if (searchInput && studentSelect) {
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.toLowerCase();
+            let visibleCount = 0;
+            Array.from(studentSelect.options).forEach(opt => {
+                const match = opt.text.toLowerCase().includes(q);
+                opt.style.display = match ? '' : 'none';
+                if (match) visibleCount++;
+            });
+            if (noStudents) noStudents.style.display = visibleCount === 0 ? 'block' : 'none';
+        });
     }
 });
 
-// Roulette functionality
+// ============================================================
+// WhatsApp Share
+// ============================================================
+
+function shareOnWhatsApp() {
+    const codeEl = document.getElementById('challengeCode');
+    if (!codeEl) { alert('No se encontró el código del desafío.'); return; }
+
+    const code = codeEl.textContent.trim();
+    if (!code)  { alert('El código está vacío.'); return; }
+
+    const msg = `¡Únete a mi desafío en Classroom Clash! 🚀\n\nCódigo: *${code}*\n\n${window.location.origin}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+
+    const win = window.open(url, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+        window.location.href = url;
+    }
+}
+
+// ============================================================
+// Ruleta
+// ============================================================
+
 let rouletteParticipants = [];
-let selectedWinner = null;
+let selectedWinner       = null;
 
 function openRouletteModal() {
-    // Fetch current participants
     fetch(`/challenge/${challengeId}/data`)
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
             rouletteParticipants = data.participants;
             renderParticipantsList();
@@ -434,223 +502,151 @@ function closeRouletteModal() {
 function renderParticipantsList() {
     const container = document.getElementById('participantsList');
     container.innerHTML = '';
-
     rouletteParticipants.forEach(p => {
-        const div = document.createElement('div');
+        const div  = document.createElement('div');
         div.className = 'participant-checkbox';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `roulette-participant-${p.id}`;
-        checkbox.value = p.id;
-        checkbox.checked = !p.participated; // Auto-check if not participated
-
+        const cb   = document.createElement('input');
+        cb.type    = 'checkbox';
+        cb.id      = `roulette-participant-${p.id}`;
+        cb.value   = p.id;
+        cb.checked = !p.participated;
         const label = document.createElement('label');
-        label.htmlFor = `roulette-participant-${p.id}`;
-        label.textContent = `${p.name} ${p.participated ? '(Ya participó)' : ''}`;
-
-        div.appendChild(checkbox);
-        div.appendChild(label);
+        label.htmlFor   = cb.id;
+        label.textContent = `${p.name}${p.participated ? ' (Ya participó)' : ''}`;
+        div.append(cb, label);
         container.appendChild(div);
     });
 }
 
-function selectAllParticipants() {
-    document.querySelectorAll('#participantsList input[type="checkbox"]').forEach(cb => cb.checked = true);
-}
-
-function deselectAllParticipants() {
-    document.querySelectorAll('#participantsList input[type="checkbox"]').forEach(cb => cb.checked = false);
-}
+function selectAllParticipants()   { document.querySelectorAll('#participantsList input[type="checkbox"]').forEach(cb => cb.checked = true); }
+function deselectAllParticipants() { document.querySelectorAll('#participantsList input[type="checkbox"]').forEach(cb => cb.checked = false); }
 
 function getSelectedParticipants() {
-    const selected = [];
-    document.querySelectorAll('#participantsList input[type="checkbox"]:checked').forEach(cb => {
-        const participant = rouletteParticipants.find(p => p.id == cb.value);
-        if (participant) selected.push(participant);
-    });
-    return selected;
+    return Array.from(document.querySelectorAll('#participantsList input[type="checkbox"]:checked'))
+        .map(cb => rouletteParticipants.find(p => p.id == cb.value))
+        .filter(Boolean);
 }
 
 function spinRoulette() {
     const selected = getSelectedParticipants();
-
-    if (selected.length === 0) {
-        alert('Debes seleccionar al menos un participante');
-        return;
-    }
+    if (!selected.length) { alert('Selecciona al menos un participante'); return; }
 
     showRouletteStep(2);
+    const display  = document.getElementById('spinnerDisplay');
+    let counter    = 0;
+    const duration = 3000;
 
-    // Spinning animation
-    const spinnerDisplay = document.getElementById('spinnerDisplay');
-    let counter = 0;
-    const spinDuration = 3000; // 3 seconds
-    const interval = 100; // Change name every 100ms
-
-    const spinInterval = setInterval(() => {
-        const randomIndex = Math.floor(Math.random() * selected.length);
-        spinnerDisplay.textContent = selected[randomIndex].name;
-        counter += interval;
-
-        if (counter >= spinDuration) {
-            clearInterval(spinInterval);
-            // Select final winner
-            const winnerIndex = Math.floor(Math.random() * selected.length);
-            selectedWinner = selected[winnerIndex];
+    const interval = setInterval(() => {
+        display.textContent = selected[Math.floor(Math.random() * selected.length)].name;
+        counter += 100;
+        if (counter >= duration) {
+            clearInterval(interval);
+            selectedWinner = selected[Math.floor(Math.random() * selected.length)];
             showWinner();
         }
-    }, interval);
+    }, 100);
 }
 
 function showWinner() {
     document.getElementById('winnerName').textContent = selectedWinner.name;
     document.getElementById('customRoulettePoints').value = '';
-    // Show current points
-    const pointsDisplay = document.getElementById('winnerCurrentPoints');
-    pointsDisplay.textContent = `Puntos actuales: ${selectedWinner.points} pts`;
-    pointsDisplay.style.fontWeight = 'normal';
-    pointsDisplay.style.color = '#6b7280';
+    const pts = document.getElementById('winnerCurrentPoints');
+    pts.textContent  = `Puntos actuales: ${selectedWinner.points} pts`;
+    pts.style.color  = '#6b7280';
+    pts.style.fontWeight = 'normal';
     showRouletteStep(3);
 }
 
 function assignRoulettePoints(points) {
     if (!selectedWinner) return;
-
-    const currentPoints = parseInt(selectedWinner.points) || 0;
-    if (currentPoints + points > maxPoints) {
-        alert(`No puedes asignar más puntos. El límite es ${maxPoints}.`);
-        return;
+    if ((parseInt(selectedWinner.points) || 0) + points > maxPoints) {
+        alert(`Límite de puntos: ${maxPoints}`); return;
     }
-
     sendRoulettePoints(selectedWinner.id, points);
 }
 
 function assignCustomRoulettePoints() {
-    const points = parseInt(document.getElementById('customRoulettePoints').value);
-
-    if (!points || points < 1) {
-        alert('Ingresa una cantidad válida de puntos');
-        return;
-    }
-
-    assignRoulettePoints(points);
+    const pts = parseInt(document.getElementById('customRoulettePoints').value);
+    if (!pts || pts < 1) { alert('Ingresa una cantidad válida'); return; }
+    assignRoulettePoints(pts);
 }
 
 function sendRoulettePoints(participantId, points) {
-    const formData = new FormData();
-    formData.append('participant_id', participantId);
-    formData.append('points', points);
-    formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-
-    fetch(`/challenge/${challengeId}/roulette`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json',
-        }
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update the current points display
-                const pointsDisplay = document.getElementById('winnerCurrentPoints');
-                pointsDisplay.textContent = `Puntos actuales: ${data.participant.points} pts`;
-                pointsDisplay.style.fontWeight = 'bold';
-                pointsDisplay.style.color = '#10b981';
-
-                fetchData(); // Refresh main grid
-                // Update roulette participants list
-                const pIndex = rouletteParticipants.findIndex(p => p.id === participantId);
-                if (pIndex !== -1) {
-                    rouletteParticipants[pIndex].participated = true;
-                    rouletteParticipants[pIndex].points = data.participant.points;
-                }
+    ajaxPost(`/challenge/${challengeId}/roulette`, { participant_id: participantId, points },
+        data => {
+            const pts = document.getElementById('winnerCurrentPoints');
+            pts.textContent  = `Puntos actuales: ${data.participant.points} pts`;
+            pts.style.color  = '#10b981';
+            pts.style.fontWeight = 'bold';
+            fetchData();
+            const idx = rouletteParticipants.findIndex(p => p.id === participantId);
+            if (idx !== -1) {
+                rouletteParticipants[idx].participated = true;
+                rouletteParticipants[idx].points = data.participant.points;
             }
-        })
-        .catch(error => {
-            alert('Hubo un error al asignar puntos');
-        });
+        }
+    );
 }
 
-function resetRoulette() {
-    selectedWinner = null;
-    showRouletteStep(1);
-    renderParticipantsList();
-}
+function resetRoulette() { selectedWinner = null; showRouletteStep(1); renderParticipantsList(); }
 
 function showRouletteStep(step) {
-    document.getElementById('rouletteStep1').style.display = step === 1 ? 'block' : 'none';
-    document.getElementById('rouletteStep2').style.display = step === 2 ? 'block' : 'none';
-    document.getElementById('rouletteStep3').style.display = step === 3 ? 'block' : 'none';
+    [1, 2, 3].forEach(n => {
+        document.getElementById(`rouletteStep${n}`).style.display = step === n ? 'block' : 'none';
+    });
 }
 
-// Expose functions to window for HTML onclick attributes
-window.shareOnWhatsApp = shareOnWhatsApp;
-window.openScoreModal = openScoreModal;
-window.closeScoreModal = closeScoreModal;
-window.adjustModalScore = adjustModalScore;
-window.applySuggestedPoints = applySuggestedPoints;
-window.openDeliveryModal = openDeliveryModal;
-window.closeDeliveryModal = closeDeliveryModal;
-window.setPenalty = setPenalty;
-window.addModalPenalty = addModalPenalty;
-window.subtractModalTime = subtractModalTime;
-window.openRouletteModal = openRouletteModal;
-window.closeRouletteModal = closeRouletteModal;
-window.selectAllParticipants = selectAllParticipants;
-window.deselectAllParticipants = deselectAllParticipants;
-window.spinRoulette = spinRoulette;
-window.assignRoulettePoints = assignRoulettePoints;
-window.assignCustomRoulettePoints = assignCustomRoulettePoints;
-window.resetRoulette = resetRoulette;
+// ============================================================
+// Equipos
+// ============================================================
 
-/* Teams Modal Functions */
+function openTeamsModal()  { document.getElementById('teamsModal').style.display = 'flex'; }
+function closeTeamsModal() { document.getElementById('teamsModal').style.display = 'none'; }
 
-function openTeamsModal() {
-    document.getElementById('teamsModal').style.display = 'flex';
-}
-
-function closeTeamsModal() {
-    document.getElementById('teamsModal').style.display = 'none';
-}
-
-function adjustTeamSize(change) {
+function adjustTeamSize(delta) {
     const input = document.getElementById('teamSizeInput');
-    let newValue = parseInt(input.value) + change;
-    if (newValue >= 2 && newValue <= 10) {
-        input.value = newValue;
-    }
+    const val   = parseInt(input.value) + delta;
+    if (val >= 2 && val <= 10) input.value = val;
 }
 
-/* Add Student Modal Functions */
-function openAddStudentModal() {
-    document.getElementById('addStudentModal').style.display = 'flex';
-}
+// ============================================================
+// Modal Añadir Estudiante
+// ============================================================
 
-function closeAddStudentModal() {
-    document.getElementById('addStudentModal').style.display = 'none';
-}
+function openAddStudentModal()  { document.getElementById('addStudentModal').style.display = 'flex'; }
+function closeAddStudentModal() { document.getElementById('addStudentModal').style.display = 'none'; }
 
-// Expose functions to window
-window.openTeamsModal = openTeamsModal;
-window.closeTeamsModal = closeTeamsModal;
-window.adjustTeamSize = adjustTeamSize;
-window.openAddStudentModal = openAddStudentModal;
-window.closeAddStudentModal = closeAddStudentModal;
+// ============================================================
+// Cerrar modales al hacer clic en el fondo
+// ============================================================
 
-// Consolidated window.onclick handler for all modals
 window.onclick = function (event) {
-    const scoreModal = document.getElementById('scoreModal');
-    const deliveryModal = document.getElementById('deliveryModal');
-    const rouletteModal = document.getElementById('rouletteModal');
-    const teamsModal = document.getElementById('teamsModal');
-    const addStudentModal = document.getElementById('addStudentModal');
+    const modals = {
+        scoreModal:       closeScoreModal,
+        deliveryModal:    closeDeliveryModal,
+        rouletteModal:    closeRouletteModal,
+        teamsModal:       closeTeamsModal,
+        addStudentModal:  closeAddStudentModal,
+    };
+    Object.entries(modals).forEach(([id, closeFn]) => {
+        const el = document.getElementById(id);
+        if (el && event.target === el) closeFn();
+    });
+};
 
-    if (event.target == scoreModal) closeScoreModal();
-    if (event.target == deliveryModal) closeDeliveryModal();
-    if (event.target == rouletteModal) closeRouletteModal();
-    if (event.target == teamsModal) closeTeamsModal();
-    if (event.target == addStudentModal) closeAddStudentModal();
-}
+// ============================================================
+// Exponer al scope global (para onclick en el HTML)
+// ============================================================
+
+Object.assign(window, {
+    shareOnWhatsApp,
+    openScoreModal, closeScoreModal,
+    adjustModalScore, applySuggestedPoints,
+    adjustModalTime, setPenalty, addModalPenalty, subtractModalTime,
+    openDeliveryModal, closeDeliveryModal, submitReturn,
+    openRouletteModal, closeRouletteModal,
+    selectAllParticipants, deselectAllParticipants,
+    spinRoulette, assignRoulettePoints, assignCustomRoulettePoints, resetRoulette,
+    openTeamsModal, closeTeamsModal, adjustTeamSize,
+    openAddStudentModal, closeAddStudentModal,
+});
