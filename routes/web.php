@@ -30,8 +30,10 @@ Route::middleware('auth')->group(function () {
     Route::put('/profile', [DashboardController::class, 'updateProfile'])->name('profile.update');
 
     // Estudiantes invitados
-    Route::post('/students/quick-create', [GuestStudentController::class, 'quickCreate'])->name('guest.quick-create');
-    Route::put('/profile/claim-upgrade',  [GuestStudentController::class, 'claimUpgrade'])->name('guest.upgrade');
+    Route::get('/students',                 [GuestStudentController::class, 'index'])->name('students.index');
+    Route::post('/students/quick-create',   [GuestStudentController::class, 'quickCreate'])->name('guest.quick-create');
+    Route::post('/students/reset-password', [GuestStudentController::class, 'resetPassword'])->name('guest.reset-password');
+    Route::put('/profile/claim-upgrade',    [GuestStudentController::class, 'claimUpgrade'])->name('guest.upgrade');
 
     Route::get('/challenge/{challenge}', [ChallengeController::class, 'show'])->name('challenge.show');
     Route::get('/challenge/{challenge}/data', [ChallengeController::class, 'getData'])->name('challenge.data');

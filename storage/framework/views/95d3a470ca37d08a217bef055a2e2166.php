@@ -17,6 +17,7 @@
     <nav class="navbar">
         <a href="/" class="logo">Classroom Clash</a>
         <div class="nav-links">
+            <a href="<?php echo e(route('guest.claim.form')); ?>" class="btn btn-ghost" style="font-size:.875rem;">🔑 Tengo un Código</a>
             <a href="javascript:void(0)" onclick="openModal('loginModal')" class="btn btn-ghost">Iniciar Sesión</a>
             <a href="javascript:void(0)" onclick="openModal('registerModal')" class="btn btn-primary">Empezar Ahora</a>
         </div>
@@ -30,6 +31,7 @@
         </p>
         <div class="cta-group">
             <a href="javascript:void(0)" onclick="openModal('registerModal')" class="btn btn-primary btn-lg">Crea tu Primer Desafío Gratis</a>
+            <a href="<?php echo e(route('guest.claim.form')); ?>" class="btn btn-outline btn-lg">🔑 Soy estudiante, tengo un código</a>
         </div>
     </header>
 
@@ -149,6 +151,9 @@ unset($__errorArgs, $__bag); ?>
 
             <div class="auth-switch">
                 ¿No tienes cuenta? <a onclick="switchModal('loginModal', 'registerModal')">Regístrate aquí</a>
+            </div>
+            <div class="auth-switch" style="margin-top:.5rem; padding-top:.75rem; border-top:1px solid #e2e8f0;">
+                🔑 ¿Tu docente te dio un código? <a href="<?php echo e(route('guest.claim.form')); ?>">Ingresa aquí</a>
             </div>
         </div>
     </div>

@@ -3,6 +3,75 @@
 <?php $__env->startSection('content'); ?>
 
 
+<?php if(Auth::user()->isGuest()): ?>
+<div class="guest-upgrade-banner">
+    <div class="gub-left">
+        <div class="gub-icon">⚡</div>
+        <div>
+            <strong>Cuenta temporal activa</strong>
+            <p>Activa tu cuenta con email y contraseña para no perder tu progreso.</p>
+        </div>
+    </div>
+    <button type="button" class="gub-btn" onclick="this.closest('.guest-upgrade-banner').querySelector('.gub-form').classList.toggle('gub-form--open')">
+        Activar cuenta
+    </button>
+
+    
+    <div class="gub-form">
+        <form action="<?php echo e(route('guest.upgrade')); ?>" method="POST">
+            <?php echo csrf_field(); ?>
+            <?php echo method_field('PUT'); ?>
+            <div class="gub-form-grid">
+                <div>
+                    <label>Nombre</label>
+                    <input type="text" name="name" class="form-control" value="<?php echo e(old('name', Auth::user()->name)); ?>" required minlength="2">
+                    <?php $__errorArgs = ['name'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <span class="field-error"><?php echo e($message); ?></span> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+                </div>
+                <div>
+                    <label>Correo electrónico</label>
+                    <input type="email" name="email" class="form-control" value="<?php echo e(old('email')); ?>" required placeholder="tu@correo.com">
+                    <?php $__errorArgs = ['email'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <span class="field-error"><?php echo e($message); ?></span> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+                </div>
+                <div>
+                    <label>Contraseña (mín. 8 caracteres)</label>
+                    <input type="password" name="password" class="form-control" required minlength="8">
+                    <?php $__errorArgs = ['password'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <span class="field-error"><?php echo e($message); ?></span> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+                </div>
+                <div>
+                    <label>Confirmar contraseña</label>
+                    <input type="password" name="password_confirmation" class="form-control" required minlength="8">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top:.75rem; width:100%;">
+                🔒 Activar mi cuenta permanente
+            </button>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
+
 <div class="join-bar">
     <form action="<?php echo e(route('challenge.join')); ?>" method="POST" class="join-bar-form">
         <?php echo csrf_field(); ?>
@@ -481,6 +550,59 @@ document.getElementById('join_code').addEventListener('input', function () {
     .main-layout {
         grid-template-columns: 1fr 320px;
     }
+}
+/* ─── Banner cuenta invitada ─── */
+.guest-upgrade-banner {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 1.5px solid #fbbf24;
+    border-radius: 12px;
+    padding: .875rem 1.1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .875rem;
+    flex-wrap: wrap;
+}
+.gub-left {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    flex: 1;
+    min-width: 0;
+}
+.gub-icon { font-size: 1.5rem; flex-shrink: 0; }
+.gub-left strong { display: block; font-size: .9rem; color: #92400e; }
+.gub-left p { font-size: .78rem; color: #b45309; margin: 0; }
+.gub-btn {
+    background: #d97706; color: white;
+    border: none; border-radius: 8px;
+    padding: .45rem 1rem; font-size: .85rem;
+    font-weight: 600; cursor: pointer;
+    flex-shrink: 0; transition: background .2s;
+}
+.gub-btn:hover { background: #b45309; }
+.gub-form {
+    display: none;
+    width: 100%;
+    background: white;
+    border-radius: 10px;
+    padding: 1rem;
+    margin-top: .25rem;
+    border: 1px solid #fde68a;
+}
+.gub-form--open { display: block; }
+.gub-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .65rem;
+}
+@media (max-width: 600px) {
+    .gub-form-grid { grid-template-columns: 1fr; }
+}
+.gub-form label {
+    display: block; font-size: .72rem; font-weight: 600;
+    color: #64748b; text-transform: uppercase;
+    letter-spacing: .04em; margin-bottom: .2rem;
 }
 </style>
 <?php $__env->stopPush(); ?>

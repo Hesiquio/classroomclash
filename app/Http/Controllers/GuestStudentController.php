@@ -10,6 +10,21 @@ use Illuminate\Support\Facades\Hash;
 class GuestStudentController extends Controller
 {
     /**
+     * Vista principal de gestión de estudiantes (solo docentes).
+     */
+    public function index()
+    {
+        $this->authorizeDocente();
+
+        $students = \App\Models\User::where('role', 'estudiante')
+            ->withCount('participations')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'is_guest', 'claim_code', 'created_at']);
+
+        return view('students.index', compact('students'));
+    }
+
+    /**
      * Docente crea uno o varios estudiantes invitados rápidamente.
      * Solo necesita el nombre; el sistema genera email temporal y claim_code.
      */
@@ -111,6 +126,41 @@ class GuestStudentController extends Controller
         ]);
 
         return back()->with('success', '¡Cuenta activada! Ya puedes iniciar sesión con tu correo y contraseña.');
+    }
+
+    /**
+     * Docente genera contraseña temporal para cualquier estudiante.
+     * Devuelve la contraseña generada en sesión para que el docente la comunique.
+     */
+    public function resetPassword(Request $request)
+    {
+        $this->authorizeDocente();
+
+        $validated = $request->validate([
+            'student_id' => ['required', 'exists:users,id'],
+        ]);
+
+        $student = User::findOrFail($validated['student_id']);
+
+        // Solo puede resetear estudiantes
+        if (!$student->isEstudiante()) {
+            return back()->withErrors(['student_id' => 'Solo puedes resetear contraseñas de estudiantes.']);
+        }
+
+        // Generar contraseña temporal legible: XXXX-XXXX
+        $chars   = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $part1   = substr(str_shuffle($chars), 0, 4);
+        $part2   = substr(str_shuffle($chars), 0, 4);
+        $tempPass = $part1 . '-' . $part2;
+
+        $student->update([
+            'password' => Hash::make($tempPass),
+        ]);
+
+        return back()->with('password_reset', [
+            'name'     => $student->name,
+            'password' => $tempPass,
+        ]);
     }
 
     private function authorizeDocente(): void

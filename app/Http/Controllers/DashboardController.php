@@ -14,7 +14,10 @@ class DashboardController extends Controller
 
         if ($user->isDocente()) {
             $challenges = $user->challenges()->where('is_active', true)->latest()->get();
-            return view('dashboard.docente', compact('challenges'));
+            $allStudents = \App\Models\User::where('role', 'estudiante')
+                ->orderBy('name')
+                ->get(['id', 'name', 'email', 'is_guest']);
+            return view('dashboard.docente', compact('challenges', 'allStudents'));
         }
 
         // Desafíos activos en los que participa
