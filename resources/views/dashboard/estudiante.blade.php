@@ -208,6 +208,70 @@
                 <div class="profile-name-display">{{ Auth::user()->name }}</div>
                 <div class="profile-email-display">{{ Auth::user()->email }}</div>
 
+                {{-- ── Frase competitiva dinámica ── --}}
+                @php
+                    $phrases = [];
+
+                    if (($stats['best_rank'] ?? null) === 1) {
+                        $phrases[] = ['🥇 Eres el #1. Los demás juegan por el segundo lugar.', 'fire'];
+                        $phrases[] = ['👑 La cima es tuya. Defiéndela como si todo dependiera de ello.', 'fire'];
+                    } elseif (($stats['best_rank'] ?? null) === 2) {
+                        $phrases[] = ['🥈 El #1 te mira por el retrovisor... tú lo miras a él de frente.', 'intense'];
+                        $phrases[] = ['⚡ A un paso del trono. ¿Qué te detiene?', 'intense'];
+                    } elseif (($stats['best_rank'] ?? null) === 3) {
+                        $phrases[] = ['🥉 Top 3. Saborea la gloria y prepárate para subir más.', 'cool'];
+                        $phrases[] = ['🎯 El podio ya te conoce. Ahora conquista el nivel siguiente.', 'cool'];
+                    }
+
+                    if (($stats['top3_count'] ?? 0) >= 5) {
+                        $phrases[] = ['🔥 ' . $stats['top3_count'] . ' veces en el Top 3. Eso no es suerte, es dominio.', 'fire'];
+                    } elseif (($stats['top3_count'] ?? 0) >= 3) {
+                        $phrases[] = ['⭐ ' . $stats['top3_count'] . ' podios. Cada uno te acerca a la leyenda.', 'cool'];
+                    } elseif (($stats['top3_count'] ?? 0) >= 1) {
+                        $phrases[] = ['✨ Ya probaste el podio. ¿Cuántas veces más puedes volver?', 'cool'];
+                    }
+
+                    if (($stats['avg_performance'] ?? 0) >= 90) {
+                        $phrases[] = ['💎 ' . $stats['avg_performance'] . '% de rendimiento. Élite pura.', 'fire'];
+                    } elseif (($stats['avg_performance'] ?? 0) >= 75) {
+                        $phrases[] = ['📈 ' . $stats['avg_performance'] . '% de promedio. Sigue empujando los límites.', 'cool'];
+                    } elseif (($stats['avg_performance'] ?? 0) >= 50) {
+                        $phrases[] = ['💪 Vas bien. Cada desafío te hace más fuerte que ayer.', 'cool'];
+                    }
+
+                    if (($stats['total_challenges'] ?? 0) >= 10) {
+                        $phrases[] = ['🏁 ' . $stats['total_challenges'] . ' desafíos completados. La constancia es tu superpoder.', 'cool'];
+                    } elseif (($stats['total_challenges'] ?? 0) >= 5) {
+                        $phrases[] = ['🚀 ' . $stats['total_challenges'] . ' desafíos. Tu progreso es imparable.', 'cool'];
+                    } elseif (($stats['total_challenges'] ?? 0) >= 1) {
+                        $phrases[] = ['🌱 Cada gran campeón empezó su primer desafío. Sigue adelante.', 'intense'];
+                    }
+
+                    // Frases generales si no hay stats o para complementar
+                    $general = [
+                        ['⚡ Los campeones no esperan la inspiración. ¡Actúan!', 'intense'],
+                        ['🎯 Un código a la vez, un desafío a la vez. Tú puedes.', 'cool'],
+                        ['🔥 La competencia te hace mejor. Abraza el desafío.', 'fire'],
+                        ['💡 No compitas contra los demás. Compite contra quien eras ayer.', 'cool'],
+                        ['🏆 El siguiente podio está a un desafío de distancia.', 'fire'],
+                    ];
+
+                    if (empty($phrases)) {
+                        $phrases = $general;
+                    } else {
+                        // Agregar una general al mix
+                        $phrases[] = $general[array_rand($general)];
+                    }
+
+                    $chosen = $phrases[array_rand($phrases)];
+                    $phraseText  = $chosen[0];
+                    $phraseTheme = $chosen[1]; // 'fire' | 'intense' | 'cool'
+                @endphp
+
+                <div class="profile-motto profile-motto--{{ $phraseTheme }}">
+                    <span class="motto-text">{{ $phraseText }}</span>
+                </div>
+
                 <form action="{{ route('profile.update') }}" method="POST" class="profile-form">
                     @csrf
                     @method('PUT')
@@ -434,7 +498,57 @@ document.getElementById('join_code').addEventListener('input', function () {
     margin:0 auto .4rem;
 }
 .profile-name-display  { text-align:center; font-weight:700; color:#1e293b; font-size:.9rem; }
-.profile-email-display { text-align:center; font-size:.75rem; color:#94a3b8; margin-bottom:.875rem; }
+.profile-email-display { text-align:center; font-size:.75rem; color:#94a3b8; margin-bottom:.75rem; }
+
+/* ── Frase motivacional del perfil ── */
+@keyframes motto-in {
+    from { opacity:0; transform:translateY(6px) scale(.97); }
+    to   { opacity:1; transform:translateY(0)   scale(1); }
+}
+.profile-motto {
+    border-radius: 10px;
+    padding: .6rem .875rem;
+    margin-bottom: .875rem;
+    text-align: center;
+    animation: motto-in .4s ease both;
+    position: relative;
+    overflow: hidden;
+}
+.profile-motto::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: .06;
+    background: repeating-linear-gradient(
+        -45deg, transparent, transparent 6px,
+        rgba(255,255,255,.8) 6px, rgba(255,255,255,.8) 7px
+    );
+    pointer-events: none;
+}
+.motto-text {
+    position: relative;
+    font-size: .8rem;
+    font-weight: 700;
+    line-height: 1.45;
+    letter-spacing: .01em;
+}
+/* temas */
+.profile-motto--fire {
+    background: linear-gradient(135deg, #fff7ed, #ffedd5);
+    border: 1.5px solid #fb923c;
+    color: #9a3412;
+}
+.profile-motto--fire .motto-text { text-shadow: 0 1px 0 rgba(251,146,60,.25); }
+.profile-motto--intense {
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    border: 1.5px solid #818cf8;
+    color: #3730a3;
+}
+.profile-motto--cool {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1.5px solid #4ade80;
+    color: #14532d;
+}
 
 .profile-form { display:flex; flex-direction:column; gap:.65rem; }
 .profile-field label {
